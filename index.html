@@ -1,0 +1,380 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0E2A2B">
+<title>المسبحة الصوتية</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icons/icon-192.png">
+<link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --night:#0E2A2B; --deep:#143B3B; --bead:#2C5654;
+    --gold:#D8B45A; --ivory:#F3EBD8; --mist:#9FB7B1; --red:#B5483E;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  body{font-family:'Tajawal',system-ui,sans-serif;background:radial-gradient(circle at 50% 0%,var(--deep),var(--night) 70%) fixed;
+    color:var(--ivory);min-height:100vh;display:flex;justify-content:center;padding:20px 16px 32px}
+  .app{width:100%;max-width:420px;display:flex;flex-direction:column;gap:18px}
+  h1{font-family:'Amiri',serif;font-weight:700;font-size:28px;text-align:center;color:var(--gold)}
+  .chips{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none}
+  .chips::-webkit-scrollbar{display:none}
+  .chip{flex:none;font-family:'Amiri',serif;font-size:17px;padding:8px 14px;border-radius:20px;
+    border:1px solid var(--bead);background:transparent;color:var(--ivory);cursor:pointer}
+  .chip.on{background:var(--gold);color:var(--night);border-color:var(--gold)}
+  .chip.add{font-family:'Tajawal',sans-serif;font-size:15px;border-style:dashed;color:var(--gold)}
+  .ringwrap{position:relative;width:min(300px,82vw);aspect-ratio:1;margin:4px auto}
+  svg{width:100%;height:100%}
+  .bead{fill:var(--bead);transition:fill .2s}
+  .bead.lit{fill:var(--gold)}
+  .center{position:absolute;inset:14%;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    border:none;background:none;color:inherit;cursor:pointer;border-radius:50%}
+  .dhikr{font-family:'Amiri',serif;font-size:22px;line-height:1.5;text-align:center;max-width:90%;
+    display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+  .count{font-size:60px;font-weight:700;line-height:1.1;color:var(--gold);font-variant-numeric:tabular-nums}
+  .count.pop{animation:pop .25s}
+  @keyframes pop{50%{transform:scale(1.12)}}
+  .sub{font-size:14px;color:var(--mist)}
+  .row{display:flex;gap:8px;justify-content:center;align-items:center;flex-wrap:wrap}
+  select,input,button.sec{font-family:inherit;font-size:15px;background:transparent;color:var(--ivory);
+    border:1px solid var(--bead);border-radius:10px;padding:8px 12px}
+  input{width:100%}
+  input::placeholder{color:var(--mist);opacity:.7}
+  #customTarget{width:80px;text-align:center}
+  select option{background:var(--night)}
+  .mic{width:100%;padding:16px;border-radius:14px;border:none;font-family:inherit;font-size:19px;font-weight:700;
+    background:var(--gold);color:var(--night);cursor:pointer;display:flex;gap:10px;justify-content:center;align-items:center}
+  .mic.live{background:var(--red);color:var(--ivory)}
+  .mic:disabled{opacity:.5}
+  .dot{width:10px;height:10px;border-radius:50%;background:currentColor}
+  .mic.live .dot{animation:blink 1s infinite}
+  @keyframes blink{50%{opacity:.2}}
+  .heard{min-height:44px;text-align:center;font-family:'Amiri',serif;font-size:18px;color:var(--mist)}
+  .msg{text-align:center;font-size:14px;color:#E8A89F}
+  .msg.ok{color:var(--gold)}
+  .totals{border-top:1px solid var(--bead);padding-top:14px;font-size:15px}
+  .totals .line{display:flex;justify-content:space-between;padding:4px 0;gap:12px}
+  .totals .line span:first-child{font-family:'Amiri',serif}
+  /* نافذة إدارة الأذكار */
+  .sheet{position:fixed;inset:0;background:rgba(5,18,18,.75);display:none;align-items:flex-end;justify-content:center;z-index:10}
+  .sheet.open{display:flex}
+  .panel{background:var(--deep);width:100%;max-width:460px;border-radius:20px 20px 0 0;padding:20px 18px 28px;
+    display:flex;flex-direction:column;gap:12px;max-height:88vh;overflow-y:auto}
+  .panel h2{font-family:'Amiri',serif;font-size:22px;color:var(--gold)}
+  .field{display:flex;flex-direction:column;gap:6px}
+  .field label{font-size:14px}
+  .hint{font-size:12.5px;color:var(--mist);line-height:1.6}
+  .btn{padding:12px;border-radius:12px;border:none;font-family:inherit;font-size:16px;font-weight:700;cursor:pointer;
+    background:var(--gold);color:var(--night)}
+  .btn.ghost{background:transparent;color:var(--ivory);border:1px solid var(--bead)}
+  .mine{display:flex;flex-direction:column;gap:6px;border-top:1px solid var(--bead);padding-top:12px}
+  .mine .item{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:6px 0}
+  .mine .item span{font-family:'Amiri',serif;font-size:17px}
+  .del{background:none;border:1px solid var(--red);color:#E8A89F;border-radius:8px;padding:4px 10px;font-family:inherit;cursor:pointer}
+  button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+  @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="app">
+  <h1>المسبحة الصوتية</h1>
+  <div class="chips" id="chips"></div>
+
+  <div class="ringwrap">
+    <svg viewBox="0 0 300 300" id="ring"></svg>
+    <button class="center" id="tap" aria-label="اضغط لإضافة تسبيحة يدويًا">
+      <div class="dhikr" id="dhikrText"></div>
+      <div class="count" id="count">0</div>
+      <div class="sub" id="progress"></div>
+    </button>
+  </div>
+
+  <div class="row">
+    <label class="sub" for="target">الهدف</label>
+    <select id="target">
+      <option value="33">33</option><option value="99">99</option>
+      <option value="100">100</option><option value="1000">1000</option>
+      <option value="custom">عدد آخر</option><option value="0">بلا حد</option>
+    </select>
+    <input id="customTarget" type="number" min="1" inputmode="numeric" placeholder="العدد" hidden>
+    <button class="sec" id="reset">تصفير</button>
+    <button class="sec" id="undo" aria-label="إنقاص واحد">−1</button>
+  </div>
+
+  <button class="mic" id="mic"><span class="dot"></span><span id="micLabel">ابدأ الاستماع</span></button>
+  <div class="heard" id="heard">قل الذكر بصوت واضح، وسيُحسب تلقائيًا</div>
+  <div class="msg" id="msg"></div>
+
+  <div class="totals" id="totals"></div>
+</div>
+
+<!-- إضافة وإدارة الأذكار -->
+<div class="sheet" id="sheet">
+  <div class="panel" role="dialog" aria-labelledby="sheetTitle">
+    <h2 id="sheetTitle">إضافة ذكر</h2>
+    <div class="field">
+      <label for="newText">نص الذكر</label>
+      <input id="newText" placeholder="مثال: حسبي الله ونعم الوكيل">
+    </div>
+    <div class="field">
+      <label for="newKey">كلمة للعدّ (اختياري)</label>
+      <input id="newKey" placeholder="مثال: الوكيل">
+      <p class="hint">إذا تركتها فارغة سيُعدّ الذكر عند سماع النص كاملًا. كتابة كلمة واحدة مميزة من الذكر تجعل العدّ أدقّ في الأذكار الطويلة.</p>
+    </div>
+    <div class="field">
+      <label for="newTarget">الهدف الافتراضي (اختياري)</label>
+      <input id="newTarget" type="number" min="1" inputmode="numeric" placeholder="مثال: 100">
+    </div>
+    <p class="msg" id="formMsg"></p>
+    <button class="btn" id="saveDhikr">إضافة الذكر</button>
+    <button class="btn ghost" id="closeSheet">إغلاق</button>
+    <div class="mine" id="mine"></div>
+  </div>
+</div>
+
+<script>
+const BUILTIN = [
+  {id:'subhan',   text:'سبحان الله',              key:'سبحان الله'},
+  {id:'hamd',     text:'الحمد لله',               key:'الحمد لله'},
+  {id:'akbar',    text:'الله أكبر',               key:'اكبر'},
+  {id:'tahlil',   text:'لا إله إلا الله',          key:'اله الا الله'},
+  {id:'istighfar',text:'أستغفر الله',             key:'استغفر'},
+  {id:'bihamdih', text:'سبحان الله وبحمده',        key:'بحمده'},
+  {id:'hawqala',  text:'لا حول ولا قوة إلا بالله',  key:'حول ولا قوه'},
+  {id:'salat',    text:'اللهم صلِّ على محمد',      key:'محمد'},
+];
+
+// توحيد الكتابة العربية: حذف التشكيل وتوحيد الألف والياء والتاء المربوطة
+function normalize(s){
+  return (s||'').replace(/[\u064B-\u065F\u0670\u0640]/g,'')
+    .replace(/[أإآٱ]/g,'ا').replace(/ى/g,'ي').replace(/ة/g,'ه')
+    .replace(/[^\u0600-\u06FF0-9\s]/g,' ')
+    .replace(/\s+/g,' ').trim();
+}
+// يبني نمط بحث مرن من النص: المسافات بين الكلمات اختيارية
+function buildPattern(key){
+  const words = normalize(key).split(' ').filter(Boolean)
+    .map(w => w.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'));
+  return new RegExp(words.join('\\s*'), 'g');
+}
+function countMatches(text, dhikr){
+  return (normalize(text).match(buildPattern(dhikr.key || dhikr.text)) || []).length;
+}
+
+// التخزين: يعمل داخل Claude وداخل تطبيق الأندرويد
+const store = {
+  async get(k){
+    try{ if(window.storage){ const r = await window.storage.get(k,false); return r ? r.value : null; } }catch(e){ return null; }
+    try{ return window.localStorage.getItem(k); }catch(e){ return null; }
+  },
+  async set(k,v){
+    try{ if(window.storage){ await window.storage.set(k,v,false); return; } }catch(e){ return; }
+    try{ window.localStorage.setItem(k,v); }catch(e){}
+  }
+};
+
+let custom = [], totals = {}, currentId = 'subhan', count = 0, target = 33;
+const $ = id => document.getElementById(id);
+const all = () => [...BUILTIN, ...custom];
+const current = () => all().find(d => d.id === currentId) || BUILTIN[0];
+
+async function load(){
+  const raw = await store.get('tasbih-state');
+  if(raw){
+    try{
+      const s = JSON.parse(raw);
+      custom = s.custom || []; totals = s.totals || {};
+      if(s.currentId && all().some(d=>d.id===s.currentId)) currentId = s.currentId;
+    }catch(e){}
+  }
+  applyDefaultTarget(); buildChips(); render(); renderTotals();
+}
+function save(){ store.set('tasbih-state', JSON.stringify({custom, totals, currentId})); }
+
+function applyDefaultTarget(){
+  const t = current().target;
+  if(t){
+    const opt = [...$('target').options].find(o => o.value == t);
+    if(opt){ $('target').value = t; $('customTarget').hidden = true; }
+    else { $('target').value = 'custom'; $('customTarget').hidden = false; $('customTarget').value = t; }
+    target = t;
+  }
+}
+
+function buildChips(){
+  const box = $('chips'); box.innerHTML = '';
+  all().forEach(d=>{
+    const b = document.createElement('button');
+    b.className = 'chip' + (d.id===currentId ? ' on' : '');
+    b.textContent = d.text;
+    b.onclick = ()=>{ currentId = d.id; count = 0; $('msg').textContent=''; applyDefaultTarget(); buildChips(); render(); save(); };
+    box.appendChild(b);
+  });
+  const add = document.createElement('button');
+  add.className = 'chip add'; add.textContent = '+ إضافة ذكر';
+  add.onclick = openSheet;
+  box.appendChild(add);
+  box.querySelector('.on')?.scrollIntoView({inline:'center', block:'nearest'});
+}
+
+function buildRing(){
+  const svg = $('ring');
+  for(let i=0;i<33;i++){
+    const a = (i/33)*Math.PI*2 - Math.PI/2;
+    const c = document.createElementNS('http://www.w3.org/2000/svg','circle');
+    c.setAttribute('cx',150+130*Math.cos(a)); c.setAttribute('cy',150+130*Math.sin(a));
+    c.setAttribute('r',9); c.setAttribute('class','bead');
+    svg.appendChild(c);
+  }
+}
+
+function render(){
+  $('dhikrText').textContent = current().text;
+  $('count').textContent = count;
+  $('progress').textContent = target ? `من ${target}` : 'بلا حد';
+  const lit = target ? Math.round(Math.min(count,target)/target*33) : (count%33 || (count?33:0));
+  [...$('ring').children].forEach((b,i)=>b.classList.toggle('lit', i<lit));
+}
+function renderTotals(){
+  const rows = all().filter(d=>totals[d.id]);
+  $('totals').innerHTML = rows.length
+    ? '<div class="line sub"><span>مجموعك الكلي</span></div>' +
+      rows.map(d=>`<div class="line"><span></span><span>${totals[d.id]}</span></div>`).join('')
+    : '';
+  // إدخال النصوص بأمان
+  [...$('totals').querySelectorAll('.line')].slice(1).forEach((el,i)=> el.firstChild.textContent = rows[i].text);
+}
+
+function add(n){
+  if(n<=0) return;
+  const before = count, d = current();
+  count += n;
+  totals[d.id] = (totals[d.id]||0) + n;
+  const el = $('count'); el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop');
+  if(navigator.vibrate) navigator.vibrate(30);
+  if(target && before < target && count >= target){
+    if(navigator.vibrate) navigator.vibrate([200,100,200]);
+    $('msg').className = 'msg ok';
+    $('msg').textContent = `أتممت ${target} من «${d.text}» — تقبّل الله`;
+  }
+  render(); renderTotals(); save();
+}
+
+$('tap').onclick = ()=>add(1);
+$('undo').onclick = ()=>{
+  if(count>0){ count--; const id=current().id; totals[id]=Math.max(0,(totals[id]||1)-1); render(); renderTotals(); save(); }
+};
+$('reset').onclick = ()=>{ count=0; $('msg').textContent=''; render(); };
+$('target').onchange = e=>{
+  const v = e.target.value;
+  $('customTarget').hidden = v !== 'custom';
+  if(v === 'custom'){ $('customTarget').focus(); target = +$('customTarget').value || 0; }
+  else target = +v;
+  render();
+};
+$('customTarget').oninput = e=>{ target = Math.max(0, +e.target.value || 0); render(); };
+
+// إدارة الأذكار المخصصة
+function openSheet(){ $('formMsg').textContent=''; renderMine(); $('sheet').classList.add('open'); setTimeout(()=>$('newText').focus(),50); }
+function closeSheet(){ $('sheet').classList.remove('open'); }
+$('closeSheet').onclick = closeSheet;
+$('sheet').onclick = e=>{ if(e.target.id==='sheet') closeSheet(); };
+
+$('saveDhikr').onclick = ()=>{
+  const text = $('newText').value.trim();
+  const key = $('newKey').value.trim();
+  const t = parseInt($('newTarget').value) || 0;
+  const fm = $('formMsg'); fm.className='msg';
+  if(!normalize(text)){ fm.textContent = 'اكتب نص الذكر أولًا.'; return; }
+  if(key && !normalize(text).includes(normalize(key))){
+    fm.textContent = 'كلمة العدّ يجب أن تكون جزءًا من نص الذكر.'; return;
+  }
+  if(all().some(d => normalize(d.text) === normalize(text))){ fm.textContent = 'هذا الذكر موجود بالفعل.'; return; }
+  const d = {id:'c'+Date.now(), text, key: key || text, target: t || undefined};
+  custom.push(d);
+  currentId = d.id; count = 0;
+  $('newText').value = $('newKey').value = $('newTarget').value = '';
+  fm.className='msg ok'; fm.textContent = `أُضيف «${text}»`;
+  applyDefaultTarget(); buildChips(); render(); renderMine(); save();
+};
+
+function renderMine(){
+  const box = $('mine'); box.innerHTML = '';
+  if(!custom.length) return;
+  const h = document.createElement('p'); h.className='sub'; h.textContent='أذكارك المضافة';
+  box.appendChild(h);
+  custom.forEach(d=>{
+    const row = document.createElement('div'); row.className='item';
+    const s = document.createElement('span'); s.textContent = d.text;
+    const b = document.createElement('button'); b.className='del'; b.textContent='حذف';
+    b.onclick = ()=>{
+      if(!confirm(`حذف «${d.text}»؟`)) return;
+      custom = custom.filter(x=>x.id!==d.id); delete totals[d.id];
+      if(currentId===d.id){ currentId='subhan'; count=0; }
+      buildChips(); render(); renderTotals(); renderMine(); save();
+    };
+    row.append(s,b); box.appendChild(row);
+  });
+}
+
+// التعرف على الكلام
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+let rec = null, listening = false;
+function setMic(on){
+  listening = on;
+  $('mic').classList.toggle('live',on);
+  $('micLabel').textContent = on ? 'إيقاف الاستماع' : 'ابدأ الاستماع';
+}
+
+if(!SR){
+  $('mic').disabled = true;
+  $('micLabel').textContent = 'الصوت غير مدعوم هنا';
+  $('msg').textContent = 'التعرف على الكلام غير مدعوم في هذا المتصفح. استخدم Chrome، أو اضغط على الدائرة للعد يدويًا.';
+} else {
+  rec = new SR();
+  rec.lang = 'ar-SA';
+  rec.continuous = true;
+  rec.interimResults = true;
+
+  rec.onresult = e=>{
+    let interim = '';
+    for(let i=e.resultIndex;i<e.results.length;i++){
+      const r = e.results[i], txt = r[0].transcript;
+      if(r.isFinal){
+        const n = countMatches(txt, current());
+        add(n);
+        $('heard').textContent = n ? `«${txt.trim()}» (+${n})` : `«${txt.trim()}» — لم يطابق الذكر المختار`;
+      } else interim += txt;
+    }
+    if(interim) $('heard').textContent = interim + '…';
+  };
+  rec.onerror = e=>{
+    if(e.error==='not-allowed' || e.error==='service-not-allowed'){
+      $('msg').className='msg';
+      $('msg').textContent = 'لم يُسمح باستخدام الميكروفون. فعّل الإذن من إعدادات التطبيق ثم أعد المحاولة.';
+      setMic(false);
+    } else if(e.error==='network'){
+      $('msg').className='msg';
+      $('msg').textContent = 'التعرف على الصوت يحتاج اتصالًا بالإنترنت. يمكنك العد يدويًا بالضغط على الدائرة.';
+      setMic(false);
+    }
+  };
+  // المتصفح يوقف الاستماع بعد فترة صمت؛ نعيد تشغيله تلقائيًا
+  rec.onend = ()=>{ if(listening){ try{ rec.start(); }catch(_){} } };
+
+  $('mic').onclick = ()=>{
+    if(listening){ setMic(false); rec.stop(); }
+    else { $('msg').textContent=''; setMic(true); try{ rec.start(); }catch(_){} }
+  };
+}
+
+// تفعيل العمل بدون إنترنت عند التشغيل كتطبيق
+if('serviceWorker' in navigator && location.protocol.startsWith('http')){
+  navigator.serviceWorker.register('sw.js').catch(()=>{});
+}
+
+buildRing(); load();
+</script>
+</body>
+</html>
