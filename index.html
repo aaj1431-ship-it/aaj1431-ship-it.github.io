@@ -10,87 +10,159 @@
 <link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
   :root{
-    --night:#0E2A2B; --deep:#143B3B; --bead:#2C5654;
-    --gold:#D8B45A; --ivory:#F3EBD8; --mist:#9FB7B1; --red:#B5483E;
+    --night:#0E2A2B; --deep:#143B3B; --panel:#18403F; --bead:#2C5654;
+    --gold:#D8B45A; --gold-soft:rgba(216,180,90,.14); --ivory:#F3EBD8; --mist:#9FB7B1; --red:#B5483E;
   }
   *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
-  body{font-family:'Tajawal',system-ui,sans-serif;background:radial-gradient(circle at 50% 0%,var(--deep),var(--night) 70%) fixed;
-    color:var(--ivory);min-height:100vh;display:flex;justify-content:center;padding:20px 16px 32px}
-  .app{width:100%;max-width:420px;display:flex;flex-direction:column;gap:18px}
-  h1{font-family:'Amiri',serif;font-weight:700;font-size:28px;text-align:center;color:var(--gold)}
-  .chips{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none}
-  .chips::-webkit-scrollbar{display:none}
-  .chip{flex:none;font-family:'Amiri',serif;font-size:17px;padding:8px 14px;border-radius:20px;
-    border:1px solid var(--bead);background:transparent;color:var(--ivory);cursor:pointer}
-  .chip.on{background:var(--gold);color:var(--night);border-color:var(--gold)}
-  .chip.add{font-family:'Tajawal',sans-serif;font-size:15px;border-style:dashed;color:var(--gold)}
-  .ringwrap{position:relative;width:min(300px,82vw);aspect-ratio:1;margin:4px auto}
-  svg{width:100%;height:100%}
+  html,body{height:100%;overflow:hidden;overscroll-behavior:none}
+  body{font-family:'Tajawal',system-ui,sans-serif;color:var(--ivory);
+    background:radial-gradient(circle at 50% 0%,var(--deep),var(--night) 70%);
+    display:flex;justify-content:center;touch-action:manipulation;user-select:none}
+  button,select,input{font-family:inherit;color:inherit}
+  .app{width:100%;max-width:440px;height:100dvh;display:flex;flex-direction:column;
+    padding:calc(env(safe-area-inset-top) + 12px) 16px calc(env(safe-area-inset-bottom) + 16px);gap:clamp(8px,1.6dvh,14px)}
+
+  /* الترويسة */
+  header{display:flex;align-items:center;justify-content:space-between}
+  .brand{display:flex;align-items:center;gap:10px}
+  .brand svg{width:46px;height:46px;flex:none}
+  .brand-text{display:flex;flex-direction:column;line-height:1}
+  .brand-text b{font-family:'Amiri',serif;font-weight:700;font-size:30px;color:var(--gold);
+    text-shadow:0 1px 0 rgba(0,0,0,.35)}
+  .brand-text small{font-size:12.5px;color:var(--mist);margin-top:3px;padding-inline-start:2px}
+  .icon-btn{width:44px;height:44px;border-radius:12px;border:1px solid var(--bead);background:transparent;
+    display:grid;place-items:center;cursor:pointer}
+  .icon-btn svg{width:22px;height:22px;stroke:var(--gold);fill:none;stroke-width:1.8;stroke-linecap:round}
+
+  /* القائمة المنسدلة */
+  .picker{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;
+    background:var(--panel);border:1px solid var(--bead);border-radius:14px;padding:10px 14px;cursor:pointer;text-align:right}
+  .picker span{font-family:'Amiri',serif;font-size:20px;line-height:1.45;
+    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .picker svg{width:18px;height:18px;flex:none;stroke:var(--gold);fill:none;stroke-width:2}
+
+  /* فضل الذكر */
+  .fadl{width:100%;background:var(--gold-soft);border:none;border-inline-start:3px solid var(--gold);
+    border-radius:4px 12px 12px 4px;padding:8px 12px;text-align:right;cursor:pointer;display:flex;flex-direction:column;gap:2px}
+  .fadl.empty{visibility:hidden}
+  .fadl .txt{font-family:'Amiri',serif;font-size:15.5px;line-height:1.6;
+    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;max-height:3.2em}
+  .fadl .src{font-size:12px;color:var(--gold)}
+
+  /* المسبحة */
+  .stage{flex:1;min-height:0;display:flex;align-items:center;justify-content:center}
+  .ringwrap{position:relative;height:100%;max-height:330px;aspect-ratio:1;max-width:100%}
+  .ringwrap svg{width:100%;height:100%}
   .bead{fill:var(--bead);transition:fill .2s}
   .bead.lit{fill:var(--gold)}
-  .center{position:absolute;inset:14%;display:flex;flex-direction:column;align-items:center;justify-content:center;
-    border:none;background:none;color:inherit;cursor:pointer;border-radius:50%}
-  .dhikr{font-family:'Amiri',serif;font-size:22px;line-height:1.5;text-align:center;max-width:90%;
-    display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
-  .count{font-size:60px;font-weight:700;line-height:1.1;color:var(--gold);font-variant-numeric:tabular-nums}
+  .center{position:absolute;inset:16%;border-radius:50%;border:none;background:none;cursor:pointer;
+    display:flex;flex-direction:column;align-items:center;justify-content:center}
+  .center:active{background:rgba(216,180,90,.06)}
+  .count{font-size:clamp(52px,11dvh,84px);font-weight:700;line-height:1;color:var(--gold);font-variant-numeric:tabular-nums}
   .count.pop{animation:pop .25s}
-  @keyframes pop{50%{transform:scale(1.12)}}
+  @keyframes pop{50%{transform:scale(1.1)}}
   .sub{font-size:14px;color:var(--mist)}
-  .row{display:flex;gap:8px;justify-content:center;align-items:center;flex-wrap:wrap}
-  select,input,button.sec{font-family:inherit;font-size:15px;background:transparent;color:var(--ivory);
-    border:1px solid var(--bead);border-radius:10px;padding:8px 12px}
-  input{width:100%}
-  input::placeholder{color:var(--mist);opacity:.7}
-  #customTarget{width:80px;text-align:center}
+
+  .controls{display:flex;gap:8px;justify-content:center;align-items:center}
+  .controls select,.controls input,.sec{font-size:15px;background:transparent;border:1px solid var(--bead);border-radius:10px;padding:8px 10px}
+  .controls input{width:70px;text-align:center}
   select option{background:var(--night)}
-  .mic{width:100%;padding:16px;border-radius:14px;border:none;font-family:inherit;font-size:19px;font-weight:700;
+  .sec{cursor:pointer}
+
+  .msg{min-height:20px;text-align:center;font-size:13.5px;color:#E8A89F;line-height:1.5}
+  .msg.ok{color:var(--gold)}
+  .mic{width:100%;padding:15px;border-radius:14px;border:none;font-size:19px;font-weight:700;
     background:var(--gold);color:var(--night);cursor:pointer;display:flex;gap:10px;justify-content:center;align-items:center}
   .mic.live{background:var(--red);color:var(--ivory)}
   .mic:disabled{opacity:.5}
   .dot{width:10px;height:10px;border-radius:50%;background:currentColor}
   .mic.live .dot{animation:blink 1s infinite}
   @keyframes blink{50%{opacity:.2}}
-  .heard{min-height:44px;text-align:center;font-family:'Amiri',serif;font-size:18px;color:var(--mist)}
-  .msg{text-align:center;font-size:14px;color:#E8A89F}
-  .msg.ok{color:var(--gold)}
-  .totals{border-top:1px solid var(--bead);padding-top:14px;font-size:15px}
-  .totals .line{display:flex;justify-content:space-between;padding:4px 0;gap:12px}
-  .totals .line span:first-child{font-family:'Amiri',serif}
-  /* نافذة إدارة الأذكار */
-  .sheet{position:fixed;inset:0;background:rgba(5,18,18,.75);display:none;align-items:flex-end;justify-content:center;z-index:10}
+
+  /* النوافذ السفلية */
+  .sheet{position:fixed;inset:0;background:rgba(5,18,18,.78);display:none;align-items:flex-end;justify-content:center;z-index:10}
   .sheet.open{display:flex}
-  .panel{background:var(--deep);width:100%;max-width:460px;border-radius:20px 20px 0 0;padding:20px 18px 28px;
-    display:flex;flex-direction:column;gap:12px;max-height:88vh;overflow-y:auto}
+  .panel{background:var(--deep);width:100%;max-width:460px;border-radius:20px 20px 0 0;
+    padding:18px 18px calc(env(safe-area-inset-bottom) + 22px);display:flex;flex-direction:column;gap:12px;
+    max-height:86dvh;overflow-y:auto;overscroll-behavior:contain;user-select:text}
+  .panel-head{display:flex;justify-content:space-between;align-items:center}
   .panel h2{font-family:'Amiri',serif;font-size:22px;color:var(--gold)}
+  .close{background:none;border:none;font-size:26px;line-height:1;color:var(--mist);cursor:pointer;padding:4px 8px}
+  .seg{display:flex;background:var(--night);border-radius:12px;padding:4px}
+  .seg button{flex:1;border:none;background:none;padding:8px;border-radius:9px;font-size:14px;cursor:pointer;color:var(--mist)}
+  .seg button.on{background:var(--panel);color:var(--gold)}
+  .list{display:flex;flex-direction:column}
+  .opt{display:flex;align-items:center;gap:10px;border-bottom:1px solid rgba(44,86,84,.6)}
+  .opt button.pick{flex:1;display:flex;align-items:center;gap:12px;background:none;border:none;padding:12px 2px;text-align:right;cursor:pointer}
+  .opt .radio{width:18px;height:18px;border-radius:50%;border:2px solid var(--bead);flex:none}
+  .opt.on .radio{border-color:var(--gold);background:radial-gradient(var(--gold) 45%,transparent 50%)}
+  .opt .name{font-family:'Amiri',serif;font-size:18px;line-height:1.5}
+  .opt .tot{font-size:13px;color:var(--mist);margin-inline-start:auto;padding-inline-start:8px}
+  .del{background:none;border:1px solid var(--red);color:#E8A89F;border-radius:8px;padding:4px 10px;font-size:13px;cursor:pointer}
+  .btn{padding:12px;border-radius:12px;border:none;font-size:16px;font-weight:700;cursor:pointer;background:var(--gold);color:var(--night)}
+  .btn.ghost{background:transparent;color:var(--gold);border:1px dashed var(--gold)}
   .field{display:flex;flex-direction:column;gap:6px}
   .field label{font-size:14px}
+  .field input{font-size:16px;background:transparent;border:1px solid var(--bead);border-radius:10px;padding:10px 12px;color:var(--ivory)}
+  .field input::placeholder{color:var(--mist);opacity:.7}
   .hint{font-size:12.5px;color:var(--mist);line-height:1.6}
-  .btn{padding:12px;border-radius:12px;border:none;font-family:inherit;font-size:16px;font-weight:700;cursor:pointer;
-    background:var(--gold);color:var(--night)}
-  .btn.ghost{background:transparent;color:var(--ivory);border:1px solid var(--bead)}
-  .mine{display:flex;flex-direction:column;gap:6px;border-top:1px solid var(--bead);padding-top:12px}
-  .mine .item{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:6px 0}
-  .mine .item span{font-family:'Amiri',serif;font-size:17px}
-  .del{background:none;border:1px solid var(--red);color:#E8A89F;border-radius:8px;padding:4px 10px;font-family:inherit;cursor:pointer}
+  .addform{display:none;flex-direction:column;gap:12px;border-top:1px solid var(--bead);padding-top:12px}
+  .addform.open{display:flex}
+  .hadith{font-family:'Amiri',serif;font-size:19px;line-height:1.9}
+  .hadith-src{font-size:14px;color:var(--gold)}
+  .tline{display:flex;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:1px solid rgba(44,86,84,.6)}
+  .tline span:first-child{font-family:'Amiri',serif;font-size:17px}
+  .tline span:last-child{color:var(--gold);font-weight:700}
+  .empty-note{color:var(--mist);font-size:14px;padding:8px 0}
+
   button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
   @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
 </head>
 <body>
 <div class="app">
-  <h1>المسبحة الصوتية</h1>
-  <div class="chips" id="chips"></div>
-
-  <div class="ringwrap">
-    <svg viewBox="0 0 300 300" id="ring"></svg>
-    <button class="center" id="tap" aria-label="اضغط لإضافة تسبيحة يدويًا">
-      <div class="dhikr" id="dhikrText"></div>
-      <div class="count" id="count">0</div>
-      <div class="sub" id="progress"></div>
+  <header>
+    <div class="brand">
+      <svg viewBox="0 0 48 48" aria-hidden="true">
+        <g fill="none" stroke="#D8B45A" stroke-width="1.6">
+          <rect x="11" y="11" width="26" height="26" rx="2"/>
+          <rect x="11" y="11" width="26" height="26" rx="2" transform="rotate(45 24 24)"/>
+        </g>
+        <circle cx="24" cy="24" r="6.5" fill="#D8B45A"/>
+        <circle cx="24" cy="24" r="2.6" fill="#0E2A2B"/>
+        <g fill="#D8B45A">
+          <circle cx="24" cy="2.6" r="1.6"/><circle cx="24" cy="45.4" r="1.6"/>
+          <circle cx="2.6" cy="24" r="1.6"/><circle cx="45.4" cy="24" r="1.6"/>
+        </g>
+      </svg>
+      <div class="brand-text"><b>المسبحة</b><small>عدّاد الأذكار بالصوت</small></div>
+    </div>
+    <button class="icon-btn" id="openTotals" aria-label="مجموعك الكلي">
+      <svg viewBox="0 0 24 24"><path d="M5 20V11M12 20V4M19 20v-6"/></svg>
     </button>
+  </header>
+
+  <button class="picker" id="picker" aria-haspopup="dialog">
+    <span id="pickText"></span>
+    <svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
+  </button>
+
+  <button class="fadl" id="fadl" aria-label="فضل الذكر">
+    <span class="txt" id="fadlText"></span>
+    <span class="src" id="fadlSrc"></span>
+  </button>
+
+  <div class="stage">
+    <div class="ringwrap">
+      <svg viewBox="0 0 300 300" id="ring"></svg>
+      <button class="center" id="tap" aria-label="اضغط لإضافة تسبيحة يدويًا">
+        <div class="count" id="count">0</div>
+        <div class="sub" id="progress"></div>
+      </button>
+    </div>
   </div>
 
-  <div class="row">
+  <div class="controls">
     <label class="sub" for="target">الهدف</label>
     <select id="target">
       <option value="33">33</option><option value="99">99</option>
@@ -99,63 +171,88 @@
     </select>
     <input id="customTarget" type="number" min="1" inputmode="numeric" placeholder="العدد" hidden>
     <button class="sec" id="reset">تصفير</button>
-    <button class="sec" id="undo" aria-label="إنقاص واحد">−1</button>
+    <button class="sec" id="undo" aria-label="إنقاص واحد" dir="ltr">−1</button>
   </div>
 
-  <div class="row">
-    <label class="sub" for="mode">التعرف</label>
-    <select id="mode">
-      <option value="auto">تلقائي: أي ذكر أقوله</option>
-      <option value="one">الذكر المختار فقط</option>
-    </select>
-  </div>
-
+  <div class="msg" id="msg" role="status"></div>
   <button class="mic" id="mic"><span class="dot"></span><span id="micLabel">ابدأ الاستماع</span></button>
-  <div class="heard" id="heard">قل الذكر بصوت واضح، وسيُحسب تلقائيًا</div>
-  <div class="msg" id="msg"></div>
-
-  <div class="totals" id="totals"></div>
 </div>
 
-<!-- إضافة وإدارة الأذكار -->
-<div class="sheet" id="sheet">
-  <div class="panel" role="dialog" aria-labelledby="sheetTitle">
-    <h2 id="sheetTitle">إضافة ذكر</h2>
-    <div class="field">
-      <label for="newText">نص الذكر</label>
-      <input id="newText" placeholder="مثال: حسبي الله ونعم الوكيل">
+<!-- قائمة الأذكار -->
+<div class="sheet" id="listSheet">
+  <div class="panel" role="dialog" aria-labelledby="listTitle">
+    <div class="panel-head"><h2 id="listTitle">اختر الذكر</h2><button class="close" data-close aria-label="إغلاق">×</button></div>
+    <div class="seg" role="group" aria-label="طريقة التعرف">
+      <button data-mode="auto">يتعرف على أي ذكر</button>
+      <button data-mode="one">الذكر المختار فقط</button>
     </div>
-    <div class="field">
-      <label for="newKey">كلمات مختصرة (اختياري)</label>
-      <input id="newKey" placeholder="مثال: حسبي الله">
-      <p class="hint">التطبيق يتعرف على الذكر من كلمة أو كلمتين منه تلقائيًا. إن كنت تختصر الذكر بطريقة معينة عند ترديده، اكتبها هنا.</p>
+    <div class="list" id="list"></div>
+    <button class="btn ghost" id="toggleAdd">+ إضافة ذكر</button>
+    <div class="addform" id="addform">
+      <div class="field">
+        <label for="newText">نص الذكر</label>
+        <input id="newText" placeholder="مثال: حسبي الله ونعم الوكيل">
+      </div>
+      <div class="field">
+        <label for="newKey">كلمات مختصرة (اختياري)</label>
+        <input id="newKey" placeholder="مثال: حسبي الله">
+        <p class="hint">التطبيق يتعرف على الذكر من كلمة أو كلمتين منه. إن كنت تختصره بطريقة معينة عند ترديده فاكتبها هنا.</p>
+      </div>
+      <div class="field">
+        <label for="newTarget">الهدف (اختياري)</label>
+        <input id="newTarget" type="number" min="1" inputmode="numeric" placeholder="مثال: 100">
+      </div>
+      <p class="msg" id="formMsg"></p>
+      <button class="btn" id="saveDhikr">إضافة الذكر</button>
     </div>
-    <div class="field">
-      <label for="newTarget">الهدف الافتراضي (اختياري)</label>
-      <input id="newTarget" type="number" min="1" inputmode="numeric" placeholder="مثال: 100">
-    </div>
-    <p class="msg" id="formMsg"></p>
-    <button class="btn" id="saveDhikr">إضافة الذكر</button>
-    <button class="btn ghost" id="closeSheet">إغلاق</button>
-    <div class="mine" id="mine"></div>
+  </div>
+</div>
+
+<!-- فضل الذكر -->
+<div class="sheet" id="fadlSheet">
+  <div class="panel" role="dialog" aria-labelledby="fadlTitle">
+    <div class="panel-head"><h2 id="fadlTitle">فضل الذكر</h2><button class="close" data-close aria-label="إغلاق">×</button></div>
+    <p class="hadith" id="fadlFull"></p>
+    <p class="hadith-src" id="fadlFullSrc"></p>
+  </div>
+</div>
+
+<!-- المجموع -->
+<div class="sheet" id="totalsSheet">
+  <div class="panel" role="dialog" aria-labelledby="totTitle">
+    <div class="panel-head"><h2 id="totTitle">مجموعك الكلي</h2><button class="close" data-close aria-label="إغلاق">×</button></div>
+    <div id="totals"></div>
+    <button class="del" id="clearTotals" style="align-self:flex-start;padding:8px 14px">مسح المجموع</button>
   </div>
 </div>
 
 <script>
 const BUILTIN = [
-  {id:'subhan',    text:'سبحان الله'},
-  {id:'hamd',      text:'الحمد لله'},
-  {id:'akbar',     text:'الله أكبر'},
-  {id:'tahlil',    text:'لا إله إلا الله'},
-  {id:'istighfar', text:'أستغفر الله', alt:['استغفر الله العظيم','استغفر الله واتوب اليه']},
-  {id:'bihamdih',  text:'سبحان الله وبحمده', alt:['سبحان الله وبحمده سبحان الله العظيم']},
-  {id:'hawqala',   text:'لا حول ولا قوة إلا بالله'},
-  {id:'salat',     text:'اللهم صلِّ على محمد', alt:['اللهم صلي علي محمد','اللهم صلي وسلم علي نبينا محمد','صلي الله عليه وسلم']},
+  {id:'subhan', text:'سبحان الله',
+   fadl:'«أيعجز أحدكم أن يكسب كل يوم ألف حسنة؟» فسأله سائل: كيف يكسب أحدنا ألف حسنة؟ قال: «يسبّح مائة تسبيحة، فيُكتب له ألف حسنة، أو يُحطّ عنه ألف خطيئة»', src:'رواه مسلم'},
+  {id:'hamd', text:'الحمد لله',
+   fadl:'«الطُّهور شطر الإيمان، والحمد لله تملأ الميزان، وسبحان الله والحمد لله تملآن - أو تملأ - ما بين السماوات والأرض»', src:'رواه مسلم'},
+  {id:'akbar', text:'الله أكبر',
+   fadl:'«أحبّ الكلام إلى الله أربع: سبحان الله، والحمد لله، ولا إله إلا الله، والله أكبر، لا يضرّك بأيّهنّ بدأت»', src:'رواه مسلم'},
+  {id:'tahlil', text:'لا إله إلا الله',
+   fadl:'«أسعد الناس بشفاعتي يوم القيامة من قال: لا إله إلا الله، خالصًا من قلبه أو نفسه»', src:'رواه البخاري'},
+  {id:'tahlil100', text:'لا إله إلا الله وحده لا شريك له، له الملك وله الحمد، وهو على كل شيء قدير', target:100,
+   fadl:'«من قال: لا إله إلا الله وحده لا شريك له، له الملك وله الحمد، وهو على كل شيء قدير، في يوم مائة مرة، كانت له عَدْل عشر رقاب، وكُتبت له مائة حسنة، ومُحيت عنه مائة سيئة، وكانت له حِرزًا من الشيطان يومه ذلك حتى يمسي، ولم يأتِ أحد بأفضل مما جاء به إلا أحد عمل أكثر من ذلك»', src:'متفق عليه'},
+  {id:'bihamdih', text:'سبحان الله وبحمده', target:100,
+   fadl:'«من قال: سبحان الله وبحمده، في يوم مائة مرة، حُطّت خطاياه وإن كانت مثل زَبَد البحر»', src:'متفق عليه'},
+  {id:'azim', text:'سبحان الله وبحمده، سبحان الله العظيم',
+   fadl:'«كلمتان خفيفتان على اللسان، ثقيلتان في الميزان، حبيبتان إلى الرحمن: سبحان الله وبحمده، سبحان الله العظيم»', src:'متفق عليه'},
+  {id:'istighfar', text:'أستغفر الله', alt:['استغفر الله العظيم','استغفر الله واتوب اليه'],
+   fadl:'«والله إني لأستغفر الله وأتوب إليه في اليوم أكثر من سبعين مرة»', src:'رواه البخاري'},
+  {id:'hawqala', text:'لا حول ولا قوة إلا بالله',
+   fadl:'قال النبي ﷺ لأبي موسى الأشعري: «ألا أدلّك على كنز من كنوز الجنة؟» فقلت: بلى يا رسول الله، قال: «لا حول ولا قوة إلا بالله»', src:'متفق عليه'},
+  {id:'salat', text:'اللهم صلِّ على محمد', alt:['اللهم صلي علي محمد','اللهم صلي وسلم علي نبينا محمد','صلي الله عليه وسلم'],
+   fadl:'«من صلّى عليّ واحدة، صلّى الله عليه عشرًا»', src:'رواه مسلم'},
 ];
 
 // ===== أدوات النص =====
 function normalize(s){
-  return (s||'').replace(/[\u064B-\u065F\u0670\u0640]/g,'')
+  return (s||'').replace(/[،؛؟«»]/g,' ').replace(/[\u064B-\u065F\u0670\u0640]/g,'')
     .replace(/[أإآٱ]/g,'ا').replace(/ى/g,'ي').replace(/ة/g,'ه')
     .replace(/[^\u0600-\u06FF0-9\s]/g,' ')
     .replace(/\s+/g,' ').trim();
@@ -189,6 +286,13 @@ function same(a,b){
   return sa.length>=4 && sb.length>=4 && lev(sa,sb)<=1;
 }
 
+function better(a,b){
+  if(!b) return true;
+  if(a.cut!==b.cut) return !a.cut;
+  if(a.matched!==b.matched) return a.matched>b.matched;
+  return a.ratio>b.ratio;
+}
+
 // أفضل تطابق لذكر يبدأ عند الكلمة i: كلمات متتالية من الذكر،
 // مع السماح بكلمة زائدة واحدة في الكلام، وسقوط كلمة شائعة واحدة
 function matchAt(T, i, W){
@@ -204,8 +308,10 @@ function matchAt(T, i, W){
     }
     // يجب أن تحتوي كلمة مميزة، أو ثلاث كلمات على الأقل (مثل: لا إله إلا الله)
     if(!got.some(w=>!STOP.has(EQUIV[w]||w)) && got.length<3) continue;
-    const cand={matched:got.length, ratio:got.length/W.length, end:k, p, q};
-    if(!best || cand.matched>best.matched || (cand.matched===best.matched && cand.ratio>best.ratio)) best=cand;
+    // مقطوع: لم يكتمل الذكر رغم وجود كلام بعده يخالفه
+    const cut = q<W.length && k<T.length;
+    const cand={matched:got.length, ratio:got.length/W.length, end:k, p, q, cut};
+    if(better(cand,best)) best=cand;
   }
   return best;
 }
@@ -221,7 +327,7 @@ function analyze(text, list, live){
     let win=null;
     for(const v of seqs){
       const m=matchAt(T,i,v.W);
-      if(m && (!win || m.matched>win.m.matched || (m.matched===win.m.matched && m.ratio>win.m.ratio))) win={v,m};
+      if(m && (!win || better(m,win.m))) win={v,m};
     }
     if(win){
       // إكمال لنفس الترديدة (جزء لاحق من نفس الذكر) لا يُحسب مرة جديدة
@@ -257,7 +363,8 @@ const store = {
 let custom=[], totals={}, counts={}, currentId='subhan', target=33, mode='auto';
 const $ = id => document.getElementById(id);
 const all = () => [...BUILTIN, ...custom];
-const current = () => all().find(d => d.id === currentId) || BUILTIN[0];
+const byId = id => all().find(d => d.id === id);
+const current = () => byId(currentId) || BUILTIN[0];
 const count = () => counts[currentId] || 0;
 
 async function load(){
@@ -266,11 +373,18 @@ async function load(){
     try{
       const s = JSON.parse(raw);
       custom = s.custom || []; totals = s.totals || {}; mode = s.mode || 'auto';
-      if(s.currentId && all().some(d=>d.id===s.currentId)) currentId = s.currentId;
+      // دمج الأذكار المضافة التي أصبحت ضمن الأذكار الأساسية
+      custom = custom.filter(c=>{
+        const b = BUILTIN.find(x=>normalize(x.text)===normalize(c.text));
+        if(!b) return true;
+        if(totals[c.id]){ totals[b.id]=(totals[b.id]||0)+totals[c.id]; delete totals[c.id]; }
+        if(s.currentId===c.id) s.currentId=b.id;
+        return false;
+      });
+      if(s.currentId && byId(s.currentId)) currentId = s.currentId;
     }catch(e){}
   }
-  $('mode').value = mode;
-  applyDefaultTarget(); buildChips(); render(); renderTotals();
+  applyDefaultTarget(); render(); save();
 }
 function save(){ store.set('tasbih-state', JSON.stringify({custom, totals, currentId, mode})); }
 
@@ -286,23 +400,7 @@ function applyDefaultTarget(){
 function selectDhikr(id){
   if(id===currentId) return;
   currentId = id; $('msg').textContent='';
-  applyDefaultTarget(); buildChips(); render(); save();
-}
-
-function buildChips(){
-  const box = $('chips'); box.innerHTML = '';
-  all().forEach(d=>{
-    const b = document.createElement('button');
-    b.className = 'chip' + (d.id===currentId ? ' on' : '');
-    b.textContent = d.text;
-    b.onclick = ()=>selectDhikr(d.id);
-    box.appendChild(b);
-  });
-  const add = document.createElement('button');
-  add.className = 'chip add'; add.textContent = '+ إضافة ذكر';
-  add.onclick = openSheet;
-  box.appendChild(add);
-  box.querySelector('.on')?.scrollIntoView({inline:'center', block:'nearest'});
+  applyDefaultTarget(); render(); save();
 }
 
 function buildRing(){
@@ -310,75 +408,75 @@ function buildRing(){
   for(let i=0;i<33;i++){
     const a = (i/33)*Math.PI*2 - Math.PI/2;
     const c = document.createElementNS('http://www.w3.org/2000/svg','circle');
-    c.setAttribute('cx',150+130*Math.cos(a)); c.setAttribute('cy',150+130*Math.sin(a));
-    c.setAttribute('r',9); c.setAttribute('class','bead');
+    c.setAttribute('cx',150+132*Math.cos(a)); c.setAttribute('cy',150+132*Math.sin(a));
+    c.setAttribute('r',9.5); c.setAttribute('class','bead');
     svg.appendChild(c);
   }
 }
 
 function render(){
-  const n = count();
-  $('dhikrText').textContent = current().text;
+  const d = current(), n = count();
+  $('pickText').textContent = d.text;
+  $('fadl').classList.toggle('empty', !d.fadl);
+  $('fadlText').textContent = d.fadl || '';
+  $('fadlSrc').textContent = d.src || '';
   $('count').textContent = n;
   $('progress').textContent = target ? `من ${target}` : 'بلا حد';
   const lit = target ? Math.round(Math.min(n,target)/target*33) : (n%33 || (n?33:0));
   [...$('ring').children].forEach((b,i)=>b.classList.toggle('lit', i<lit));
 }
-function renderTotals(){
-  const rows = all().filter(d=>totals[d.id]);
-  const box = $('totals'); box.innerHTML = '';
-  if(!rows.length) return;
-  const head = document.createElement('div'); head.className='line sub';
-  head.innerHTML = '<span>مجموعك الكلي</span><button class="del" id="clearTotals">مسح المجموع</button>';
-  box.appendChild(head);
-  rows.forEach(d=>{
-    const l = document.createElement('div'); l.className='line';
-    const a = document.createElement('span'); a.textContent = d.text;
-    const b = document.createElement('span'); b.textContent = totals[d.id];
-    l.append(a,b); box.appendChild(l);
+
+// ===== النوافذ =====
+function openSheet(id){ $(id).classList.add('open'); }
+function closeSheets(){ document.querySelectorAll('.sheet').forEach(s=>s.classList.remove('open')); }
+document.querySelectorAll('.sheet').forEach(s=>{
+  s.addEventListener('click', e=>{ if(e.target===s || e.target.hasAttribute('data-close')) closeSheets(); });
+});
+
+$('picker').onclick = ()=>{ renderList(); $('addform').classList.remove('open'); $('formMsg').textContent=''; openSheet('listSheet'); };
+$('fadl').onclick = ()=>{
+  const d = current(); if(!d.fadl) return;
+  $('fadlFull').textContent = d.fadl; $('fadlFullSrc').textContent = d.src;
+  openSheet('fadlSheet');
+};
+$('openTotals').onclick = ()=>{ renderTotals(); openSheet('totalsSheet'); };
+
+function renderMode(){
+  document.querySelectorAll('[data-mode]').forEach(b=>b.classList.toggle('on', b.dataset.mode===mode));
+}
+document.querySelectorAll('[data-mode]').forEach(b=>b.onclick = ()=>{ mode=b.dataset.mode; renderMode(); save(); });
+
+function renderList(){
+  renderMode();
+  const box = $('list'); box.innerHTML = '';
+  all().forEach(d=>{
+    const row = document.createElement('div');
+    row.className = 'opt' + (d.id===currentId ? ' on' : '');
+    const pick = document.createElement('button'); pick.className='pick';
+    const r = document.createElement('span'); r.className='radio';
+    const nm = document.createElement('span'); nm.className='name'; nm.textContent = d.text;
+    pick.append(r,nm);
+    if(totals[d.id]){ const t=document.createElement('span'); t.className='tot'; t.textContent=totals[d.id]; pick.append(t); }
+    pick.onclick = ()=>{ selectDhikr(d.id); closeSheets(); };
+    row.append(pick);
+    if(custom.includes(d)){
+      const del = document.createElement('button'); del.className='del'; del.textContent='حذف';
+      del.onclick = ()=>{
+        if(!confirm(`حذف «${d.text}»؟`)) return;
+        custom = custom.filter(x=>x!==d); delete totals[d.id]; delete counts[d.id];
+        if(currentId===d.id) currentId='subhan';
+        render(); renderList(); save();
+      };
+      row.append(del);
+    }
+    box.append(row);
   });
-  $('clearTotals').onclick = ()=>{
-    if(confirm('مسح المجموع الكلي لكل الأذكار؟')){ totals = {}; counts = {}; render(); renderTotals(); save(); }
-  };
 }
 
-function add(id, n){
-  if(n<=0) return;
-  const before = counts[id] || 0;
-  counts[id] = before + n;
-  totals[id] = (totals[id]||0) + n;
-  if(id!==currentId) selectDhikr(id);
-  const el = $('count'); el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop');
-  if(navigator.vibrate) navigator.vibrate(30);
-  if(target && before < target && counts[id] >= target){
-    if(navigator.vibrate) navigator.vibrate([200,100,200]);
-    $('msg').className = 'msg ok';
-    $('msg').textContent = `أتممت ${target} من «${current().text}» — تقبّل الله`;
-  }
-  render(); renderTotals(); save();
-}
-
-$('tap').onclick = ()=>add(currentId, 1);
-$('undo').onclick = ()=>{
-  if(count()>0){ counts[currentId]--; totals[currentId]=Math.max(0,(totals[currentId]||1)-1); render(); renderTotals(); save(); }
+$('toggleAdd').onclick = ()=>{
+  const f=$('addform'); f.classList.toggle('open');
+  if(f.classList.contains('open')) setTimeout(()=>{ $('newText').focus(); f.scrollIntoView({block:'end'}); },50);
 };
-$('reset').onclick = ()=>{ counts[currentId]=0; $('msg').textContent=''; render(); };
-$('target').onchange = e=>{
-  const v = e.target.value;
-  $('customTarget').hidden = v !== 'custom';
-  if(v === 'custom'){ $('customTarget').focus(); target = +$('customTarget').value || 0; }
-  else target = +v;
-  render();
-};
-$('customTarget').oninput = e=>{ target = Math.max(0, +e.target.value || 0); render(); };
-$('mode').onchange = e=>{ mode = e.target.value; save(); };
-
-// ===== إدارة الأذكار المخصصة =====
-function openSheet(){ $('formMsg').textContent=''; renderMine(); $('sheet').classList.add('open'); setTimeout(()=>$('newText').focus(),50); }
-function closeSheet(){ $('sheet').classList.remove('open'); }
-$('closeSheet').onclick = closeSheet;
-$('sheet').onclick = e=>{ if(e.target.id==='sheet') closeSheet(); };
-
 $('saveDhikr').onclick = ()=>{
   const text = $('newText').value.trim();
   const key = $('newKey').value.trim();
@@ -390,31 +488,59 @@ $('saveDhikr').onclick = ()=>{
   const d = {id:'c'+Date.now(), text, key: key || undefined, target: t || undefined};
   custom.push(d);
   $('newText').value = $('newKey').value = $('newTarget').value = '';
-  fm.className='msg ok'; fm.textContent = `أُضيف «${text}»`;
-  selectDhikr(d.id); buildChips(); renderMine(); save();
+  selectDhikr(d.id); save(); closeSheets();
 };
 
-function renderMine(){
-  const box = $('mine'); box.innerHTML = '';
-  if(!custom.length) return;
-  const h = document.createElement('p'); h.className='sub'; h.textContent='أذكارك المضافة';
-  box.appendChild(h);
-  custom.forEach(d=>{
-    const row = document.createElement('div'); row.className='item';
-    const s = document.createElement('span'); s.textContent = d.text;
-    const b = document.createElement('button'); b.className='del'; b.textContent='حذف';
-    b.onclick = ()=>{
-      if(!confirm(`حذف «${d.text}»؟`)) return;
-      custom = custom.filter(x=>x.id!==d.id); delete totals[d.id]; delete counts[d.id];
-      if(currentId===d.id) currentId='subhan';
-      buildChips(); render(); renderTotals(); renderMine(); save();
-    };
-    row.append(s,b); box.appendChild(row);
+function renderTotals(){
+  const rows = all().filter(d=>totals[d.id]);
+  const box = $('totals'); box.innerHTML = '';
+  $('clearTotals').hidden = !rows.length;
+  if(!rows.length){ box.innerHTML = '<p class="empty-note">لم تسجّل أي ذكر بعد.</p>'; return; }
+  rows.forEach(d=>{
+    const l = document.createElement('div'); l.className='tline';
+    const a = document.createElement('span'); a.textContent = d.text;
+    const b = document.createElement('span'); b.textContent = totals[d.id];
+    l.append(a,b); box.append(l);
   });
 }
+$('clearTotals').onclick = ()=>{
+  if(confirm('مسح المجموع الكلي لكل الأذكار؟')){ totals = {}; counts = {}; render(); renderTotals(); save(); }
+};
+
+// ===== العدّ =====
+function add(id, n){
+  if(n<=0) return;
+  const before = counts[id] || 0;
+  counts[id] = before + n;
+  totals[id] = (totals[id]||0) + n;
+  if(id!==currentId) selectDhikr(id);
+  const el = $('count'); el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop');
+  if(navigator.vibrate) navigator.vibrate(30);
+  if(target && before < target && counts[id] >= target){
+    if(navigator.vibrate) navigator.vibrate([200,100,200]);
+    $('msg').className = 'msg ok';
+    $('msg').textContent = `أتممت ${target} — تقبّل الله`;
+  }
+  render(); save();
+}
+
+$('tap').onclick = ()=>add(currentId, 1);
+$('undo').onclick = ()=>{
+  if(count()>0){ counts[currentId]--; totals[currentId]=Math.max(0,(totals[currentId]||1)-1); render(); save(); }
+};
+$('reset').onclick = ()=>{ counts[currentId]=0; $('msg').textContent=''; render(); };
+$('target').onchange = e=>{
+  const v = e.target.value;
+  $('customTarget').hidden = v !== 'custom';
+  if(v === 'custom'){ $('customTarget').focus(); target = +$('customTarget').value || 0; }
+  else target = +v;
+  render();
+};
+$('customTarget').oninput = e=>{ target = Math.max(0, +e.target.value || 0); render(); };
 
 // ===== التعرف على الكلام =====
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+const isAndroid = /Android/i.test(navigator.userAgent);
 let rec = null, listening = false;
 function setMic(on){
   listening = on;
@@ -425,70 +551,71 @@ function setMic(on){
 if(!SR){
   $('mic').disabled = true;
   $('micLabel').textContent = 'الصوت غير مدعوم هنا';
-  $('msg').textContent = 'التعرف على الكلام غير مدعوم في هذا المتصفح. استخدم Chrome، أو اضغط على الدائرة للعد يدويًا.';
+  $('msg').textContent = 'استخدم متصفح Chrome، أو اضغط على الدائرة للعد يدويًا.';
 } else {
   rec = new SR();
   rec.lang = 'ar-SA';
-  rec.continuous = false;       // جملة بجملة: أدق على أندرويد
+  rec.continuous = false;
   rec.interimResults = true;
   rec.maxAlternatives = 1;
 
-  let sessionCounted = {};      // ما حُسب في الجملة الحالية حتى لا يتكرر
-  let lastTick = '';
-  rec.onstart = ()=>{ sessionCounted = {}; lastTick = ''; };
+  let counted = {};      // ما احتُسب في الجملة الحالية
+  let prevFound = {};    // نتيجة التحليل السابقة (للتأكد من ثبات النتيجة)
+  let gotAny = false;    // هل وصل أي نص في هذه الجملة؟
+  let lastFinal = '';    // نص آخر جملة مكتملة
 
-  // نجمع نص الجملة الحالية (بعض الأجهزة تكرر النص السابق داخل النتيجة التالية)
+  rec.onstart = ()=>{ counted = {}; prevFound = {}; gotAny = false; };
+
+  // نص الجملة الحالية: على أندرويد آخر نتيجة تحوي النص كاملًا
   function transcriptOf(results){
+    if(isAndroid) return results[results.length-1][0].transcript.trim();
     let text='';
-    for(const r of results){
-      const t=r[0].transcript.trim();
-      if(!t) continue;
-      if(text && normalize(t).startsWith(normalize(text))) text=t;
-      else if(!normalize(text).endsWith(normalize(t))) text=(text+' '+t).trim();
-    }
-    return text;
+    for(const r of results) text += ' ' + r[0].transcript;
+    return text.replace(/\s+/g,' ').trim();
   }
 
   rec.onresult = e=>{
-    const r = e.results[e.results.length - 1];
+    const final = e.results[e.results.length-1].isFinal;
     const txt = transcriptOf(e.results);
-    const final = r.isFinal;
+    if(!txt) return;
+    // بعض الأجهزة تعيد إرسال الجملة السابقة عند بدء جلسة جديدة
+    if(final && !gotAny && normalize(txt)===lastFinal){ return; }
+    gotAny = true;
+
     const list = mode === 'one' ? [current()] : all();
-    // نحسب أثناء الكلام مباشرة، لا ننتظر نهاية الجملة
     const found = analyze(txt, list, !final);
-    for(const id in found){
-      const delta = Math.max(0, found[id] - (sessionCounted[id]||0));
-      sessionCounted[id] = Math.max(sessionCounted[id]||0, found[id]);
-      if(delta){
-        add(id, delta);
-        lastTick = `✓ ${all().find(d=>d.id===id).text}`;
-      }
+    // أثناء الكلام: لا نحتسب إلا ما ثبت في قراءتين متتاليتين
+    const ids = new Set([...Object.keys(found), ...Object.keys(prevFound)]);
+    for(const id of ids){
+      const stable = final ? (found[id]||0) : Math.min(found[id]||0, prevFound[id]||0);
+      const delta = stable - (counted[id]||0);
+      if(delta > 0){ counted[id] = stable; add(id, delta); }
     }
-    $('heard').textContent = `«${txt}${final?'':'…'}»` + (lastTick ? `  ${lastTick}` : '');
+    prevFound = found;
+    if(final) lastFinal = normalize(txt);
   };
+
   rec.onerror = e=>{
     if(e.error==='not-allowed' || e.error==='service-not-allowed'){
       $('msg').className='msg';
-      $('msg').textContent = 'لم يُسمح باستخدام الميكروفون. فعّل الإذن من إعدادات التطبيق ثم أعد المحاولة.';
+      $('msg').textContent = 'اسمح باستخدام الميكروفون من إعدادات التطبيق ثم أعد المحاولة.';
       setMic(false);
     } else if(e.error==='network' || e.error==='language-not-supported'){
       $('msg').className='msg';
-      $('msg').textContent = 'التعرف على الصوت غير متاح بدون إنترنت على جهازك. نزّل حزمة العربية للتعرف دون اتصال من إعدادات Google، أو اضغط على الدائرة للعد يدويًا.';
+      $('msg').textContent = 'العدّ بالصوت يحتاج اتصالًا بالإنترنت. يمكنك العدّ بالضغط على الدائرة.';
       setMic(false);
     }
   };
-  rec.onend = ()=>{ if(listening) setTimeout(()=>{ if(listening){ try{ rec.start(); }catch(_){} } }, 120); };
+  rec.onend = ()=>{ if(listening) setTimeout(()=>{ if(listening){ try{ rec.start(); }catch(_){} } }, 150); };
 
   $('mic').onclick = ()=>{
     if(listening){ setMic(false); rec.stop(); return; }
-    $('msg').textContent='';
-    // التعرف على الجهاز مباشرة إن كان المتصفح يدعمه وكنت بدون إنترنت
+    $('msg').textContent=''; lastFinal='';
     if('processLocally' in rec) rec.processLocally = !navigator.onLine;
     setMic(true); try{ rec.start(); }catch(_){}
   };
 }
 
-// تفعيل العمل بدون إنترنت عند التشغيل كتطبيق
 if('serviceWorker' in navigator && location.protocol.startsWith('http')){
   navigator.serviceWorker.register('sw.js').catch(()=>{});
 }
