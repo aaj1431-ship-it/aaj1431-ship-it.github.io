@@ -211,11 +211,12 @@ function matchAt(T, i, W){
 }
 
 // يحلل الكلام ويُرجع عدد مرات كل ذكر
-function analyze(text, list){
+// live=true: أثناء الكلام، نؤجل آخر ذكر فقط إن كان قد يكتمل لذكر أطول
+function analyze(text, list, live){
   const T=words(text), result={};
   const seqs=list.flatMap(d=>[d.text, ...(d.alt||[]), ...(d.key&&d.key!==d.text?[d.key]:[])]
     .map(s=>({d, W:words(s)})).filter(v=>v.W.length));
-  let i=0, prev=null;
+  let i=0, prev=null, last=null;
   while(i<T.length){
     let win=null;
     for(const v of seqs){
@@ -226,10 +227,17 @@ function analyze(text, list){
       // إكمال لنفس الترديدة (جزء لاحق من نفس الذكر) لا يُحسب مرة جديدة
       const cont = prev && prev.v===win.v && win.m.p>=prev.q;
       if(!cont) result[win.v.d.id]=(result[win.v.d.id]||0)+1;
+      const W=win.v.W, id=win.v.d.id;
+      const done = win.m.q===W.length && win.m.end<=T.length;
+      const extendable = seqs.some(o=>o.W.length>W.length && W.every((w,x)=>same(w,o.W[x])));
+      last = {id, counted:!cont, safe: done && !extendable};
       prev={v:win.v, q:win.m.q};
       i=win.m.end;
     }
     else i++;
+  }
+  if(live && last && last.counted && !last.safe){
+    if(--result[last.id]===0) delete result[last.id];
   }
   return result;
 }
@@ -426,24 +434,37 @@ if(!SR){
   rec.maxAlternatives = 1;
 
   let sessionCounted = {};      // ما حُسب في الجملة الحالية حتى لا يتكرر
-  rec.onstart = ()=>{ sessionCounted = {}; };
+  let lastTick = '';
+  rec.onstart = ()=>{ sessionCounted = {}; lastTick = ''; };
+
+  // نجمع نص الجملة الحالية (بعض الأجهزة تكرر النص السابق داخل النتيجة التالية)
+  function transcriptOf(results){
+    let text='';
+    for(const r of results){
+      const t=r[0].transcript.trim();
+      if(!t) continue;
+      if(text && normalize(t).startsWith(normalize(text))) text=t;
+      else if(!normalize(text).endsWith(normalize(t))) text=(text+' '+t).trim();
+    }
+    return text;
+  }
 
   rec.onresult = e=>{
     const r = e.results[e.results.length - 1];
-    const txt = r[0].transcript.trim();
-    if(!r.isFinal){ $('heard').textContent = txt + '…'; return; }
+    const txt = transcriptOf(e.results);
+    const final = r.isFinal;
     const list = mode === 'one' ? [current()] : all();
-    const found = analyze(txt, list);
-    const parts = [];
+    // نحسب أثناء الكلام مباشرة، لا ننتظر نهاية الجملة
+    const found = analyze(txt, list, !final);
     for(const id in found){
       const delta = Math.max(0, found[id] - (sessionCounted[id]||0));
       sessionCounted[id] = Math.max(sessionCounted[id]||0, found[id]);
       if(delta){
         add(id, delta);
-        parts.push(`${all().find(d=>d.id===id).text} +${delta}`);
+        lastTick = `✓ ${all().find(d=>d.id===id).text}`;
       }
     }
-    $('heard').textContent = parts.length ? `«${txt}»  ✓ ${parts.join('، ')}` : `«${txt}»`;
+    $('heard').textContent = `«${txt}${final?'':'…'}»` + (lastTick ? `  ${lastTick}` : '');
   };
   rec.onerror = e=>{
     if(e.error==='not-allowed' || e.error==='service-not-allowed'){
