@@ -102,6 +102,14 @@
     <button class="sec" id="undo" aria-label="إنقاص واحد">−1</button>
   </div>
 
+  <div class="row">
+    <label class="sub" for="mode">التعرف</label>
+    <select id="mode">
+      <option value="auto">تلقائي: أي ذكر أقوله</option>
+      <option value="one">الذكر المختار فقط</option>
+    </select>
+  </div>
+
   <button class="mic" id="mic"><span class="dot"></span><span id="micLabel">ابدأ الاستماع</span></button>
   <div class="heard" id="heard">قل الذكر بصوت واضح، وسيُحسب تلقائيًا</div>
   <div class="msg" id="msg"></div>
@@ -118,9 +126,9 @@
       <input id="newText" placeholder="مثال: حسبي الله ونعم الوكيل">
     </div>
     <div class="field">
-      <label for="newKey">كلمة للعدّ (اختياري)</label>
-      <input id="newKey" placeholder="مثال: الوكيل">
-      <p class="hint">إذا تركتها فارغة سيُعدّ الذكر عند سماع النص كاملًا. كتابة كلمة واحدة مميزة من الذكر تجعل العدّ أدقّ في الأذكار الطويلة.</p>
+      <label for="newKey">كلمات مختصرة (اختياري)</label>
+      <input id="newKey" placeholder="مثال: حسبي الله">
+      <p class="hint">التطبيق يتعرف على الذكر من كلمة أو كلمتين منه تلقائيًا. إن كنت تختصر الذكر بطريقة معينة عند ترديده، اكتبها هنا.</p>
     </div>
     <div class="field">
       <label for="newTarget">الهدف الافتراضي (اختياري)</label>
@@ -135,34 +143,98 @@
 
 <script>
 const BUILTIN = [
-  {id:'subhan',   text:'سبحان الله',              key:'سبحان الله'},
-  {id:'hamd',     text:'الحمد لله',               key:'الحمد لله'},
-  {id:'akbar',    text:'الله أكبر',               key:'اكبر'},
-  {id:'tahlil',   text:'لا إله إلا الله',          key:'اله الا الله'},
-  {id:'istighfar',text:'أستغفر الله',             key:'استغفر'},
-  {id:'bihamdih', text:'سبحان الله وبحمده',        key:'بحمده'},
-  {id:'hawqala',  text:'لا حول ولا قوة إلا بالله',  key:'حول ولا قوه'},
-  {id:'salat',    text:'اللهم صلِّ على محمد',      key:'محمد'},
+  {id:'subhan',    text:'سبحان الله'},
+  {id:'hamd',      text:'الحمد لله'},
+  {id:'akbar',     text:'الله أكبر'},
+  {id:'tahlil',    text:'لا إله إلا الله'},
+  {id:'istighfar', text:'أستغفر الله', alt:['استغفر الله العظيم','استغفر الله واتوب اليه']},
+  {id:'bihamdih',  text:'سبحان الله وبحمده', alt:['سبحان الله وبحمده سبحان الله العظيم']},
+  {id:'hawqala',   text:'لا حول ولا قوة إلا بالله'},
+  {id:'salat',     text:'اللهم صلِّ على محمد', alt:['اللهم صلي علي محمد','اللهم صلي وسلم علي نبينا محمد','صلي الله عليه وسلم']},
 ];
 
-// توحيد الكتابة العربية: حذف التشكيل وتوحيد الألف والياء والتاء المربوطة
+// ===== أدوات النص =====
 function normalize(s){
   return (s||'').replace(/[\u064B-\u065F\u0670\u0640]/g,'')
     .replace(/[أإآٱ]/g,'ا').replace(/ى/g,'ي').replace(/ة/g,'ه')
     .replace(/[^\u0600-\u06FF0-9\s]/g,' ')
     .replace(/\s+/g,' ').trim();
 }
-// يبني نمط بحث مرن من النص: المسافات بين الكلمات اختيارية
-function buildPattern(key){
-  const words = normalize(key).split(' ').filter(Boolean)
-    .map(w => w.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'));
-  return new RegExp(words.join('\\s*'), 'g');
+const words = s => normalize(s).split(' ').filter(Boolean);
+
+// كلمات شائعة لا تكفي وحدها لتمييز الذكر
+const STOP = new Set(['الله','لله','بالله','لا','له','و','علي','الا','في','من','هو','ما','يا','اللهم','ان']);
+
+function lev(a,b){
+  if(Math.abs(a.length-b.length)>1) return 2;
+  const d=[...Array(b.length+1).keys()];
+  for(let i=1;i<=a.length;i++){
+    let prev=d[0]; d[0]=i;
+    for(let j=1;j<=b.length;j++){
+      const t=d[j];
+      d[j]=Math.min(d[j]+1, d[j-1]+1, prev+(a[i-1]===b[j-1]?0:1));
+      prev=t;
+    }
+  }
+  return d[b.length];
 }
-function countMatches(text, dhikr){
-  return (normalize(text).match(buildPattern(dhikr.key || dhikr.text)) || []).length;
+// تطابق مرن بين كلمتين: يتسامح مع واو العطف وخطأ حرف واحد
+const EQUIV = {'اله':'الله','لله':'الله','صلي':'صل','صلى':'صل'};
+function same(a,b){
+  if(a===b) return true;
+  const sa=a.replace(/^و(?=..)/,''), sb=b.replace(/^و(?=..)/,'');
+  if(sa===sb) return true;
+  if((EQUIV[sa]||sa)===(EQUIV[sb]||sb)) return true;
+  if(STOP.has(sa)||STOP.has(sb)) return false;   // لا تسامح مع الكلمات الشائعة
+  return sa.length>=4 && sb.length>=4 && lev(sa,sb)<=1;
 }
 
-// التخزين: يعمل داخل Claude وداخل تطبيق الأندرويد
+// أفضل تطابق لذكر يبدأ عند الكلمة i: كلمات متتالية من الذكر،
+// مع السماح بكلمة زائدة واحدة في الكلام، وسقوط كلمة شائعة واحدة
+function matchAt(T, i, W){
+  let best=null;
+  for(let p=0;p<W.length;p++){
+    if(!same(W[p],T[i])) continue;
+    let q=p+1, k=i+1, got=[W[p]], extra=0, drop=0;
+    while(q<W.length){
+      if(k<T.length && same(W[q],T[k])){ got.push(W[q]); q++; k++; }
+      else if(!extra && k+1<T.length && same(W[q],T[k+1]) && !W.slice(p,q).some(w=>same(w,T[k]))){ extra=1; got.push(W[q]); q++; k+=2; }
+      else if(!drop && STOP.has(W[q]) && q+1<W.length && k<T.length && same(W[q+1],T[k])){ drop=1; q++; }
+      else break;
+    }
+    // يجب أن تحتوي كلمة مميزة، أو ثلاث كلمات على الأقل (مثل: لا إله إلا الله)
+    if(!got.some(w=>!STOP.has(EQUIV[w]||w)) && got.length<3) continue;
+    const cand={matched:got.length, ratio:got.length/W.length, end:k, p, q};
+    if(!best || cand.matched>best.matched || (cand.matched===best.matched && cand.ratio>best.ratio)) best=cand;
+  }
+  return best;
+}
+
+// يحلل الكلام ويُرجع عدد مرات كل ذكر
+function analyze(text, list){
+  const T=words(text), result={};
+  const seqs=list.flatMap(d=>[d.text, ...(d.alt||[]), ...(d.key&&d.key!==d.text?[d.key]:[])]
+    .map(s=>({d, W:words(s)})).filter(v=>v.W.length));
+  let i=0, prev=null;
+  while(i<T.length){
+    let win=null;
+    for(const v of seqs){
+      const m=matchAt(T,i,v.W);
+      if(m && (!win || m.matched>win.m.matched || (m.matched===win.m.matched && m.ratio>win.m.ratio))) win={v,m};
+    }
+    if(win){
+      // إكمال لنفس الترديدة (جزء لاحق من نفس الذكر) لا يُحسب مرة جديدة
+      const cont = prev && prev.v===win.v && win.m.p>=prev.q;
+      if(!cont) result[win.v.d.id]=(result[win.v.d.id]||0)+1;
+      prev={v:win.v, q:win.m.q};
+      i=win.m.end;
+    }
+    else i++;
+  }
+  return result;
+}
+
+// ===== التخزين =====
 const store = {
   async get(k){
     try{ if(window.storage){ const r = await window.storage.get(k,false); return r ? r.value : null; } }catch(e){ return null; }
@@ -174,32 +246,39 @@ const store = {
   }
 };
 
-let custom = [], totals = {}, currentId = 'subhan', count = 0, target = 33;
+let custom=[], totals={}, counts={}, currentId='subhan', target=33, mode='auto';
 const $ = id => document.getElementById(id);
 const all = () => [...BUILTIN, ...custom];
 const current = () => all().find(d => d.id === currentId) || BUILTIN[0];
+const count = () => counts[currentId] || 0;
 
 async function load(){
   const raw = await store.get('tasbih-state');
   if(raw){
     try{
       const s = JSON.parse(raw);
-      custom = s.custom || []; totals = s.totals || {};
+      custom = s.custom || []; totals = s.totals || {}; mode = s.mode || 'auto';
       if(s.currentId && all().some(d=>d.id===s.currentId)) currentId = s.currentId;
     }catch(e){}
   }
+  $('mode').value = mode;
   applyDefaultTarget(); buildChips(); render(); renderTotals();
 }
-function save(){ store.set('tasbih-state', JSON.stringify({custom, totals, currentId})); }
+function save(){ store.set('tasbih-state', JSON.stringify({custom, totals, currentId, mode})); }
 
 function applyDefaultTarget(){
   const t = current().target;
-  if(t){
-    const opt = [...$('target').options].find(o => o.value == t);
-    if(opt){ $('target').value = t; $('customTarget').hidden = true; }
-    else { $('target').value = 'custom'; $('customTarget').hidden = false; $('customTarget').value = t; }
-    target = t;
-  }
+  if(!t) return;
+  const opt = [...$('target').options].find(o => o.value == t);
+  if(opt){ $('target').value = t; $('customTarget').hidden = true; }
+  else { $('target').value = 'custom'; $('customTarget').hidden = false; $('customTarget').value = t; }
+  target = t;
+}
+
+function selectDhikr(id){
+  if(id===currentId) return;
+  currentId = id; $('msg').textContent='';
+  applyDefaultTarget(); buildChips(); render(); save();
 }
 
 function buildChips(){
@@ -208,7 +287,7 @@ function buildChips(){
     const b = document.createElement('button');
     b.className = 'chip' + (d.id===currentId ? ' on' : '');
     b.textContent = d.text;
-    b.onclick = ()=>{ currentId = d.id; count = 0; $('msg').textContent=''; applyDefaultTarget(); buildChips(); render(); save(); };
+    b.onclick = ()=>selectDhikr(d.id);
     box.appendChild(b);
   });
   const add = document.createElement('button');
@@ -230,44 +309,52 @@ function buildRing(){
 }
 
 function render(){
+  const n = count();
   $('dhikrText').textContent = current().text;
-  $('count').textContent = count;
+  $('count').textContent = n;
   $('progress').textContent = target ? `من ${target}` : 'بلا حد';
-  const lit = target ? Math.round(Math.min(count,target)/target*33) : (count%33 || (count?33:0));
+  const lit = target ? Math.round(Math.min(n,target)/target*33) : (n%33 || (n?33:0));
   [...$('ring').children].forEach((b,i)=>b.classList.toggle('lit', i<lit));
 }
 function renderTotals(){
   const rows = all().filter(d=>totals[d.id]);
-  $('totals').innerHTML = rows.length
-    ? '<div class="line sub"><span>مجموعك الكلي</span><button class="del" id="clearTotals">مسح المجموع</button></div>' +
-      rows.map(d=>`<div class="line"><span></span><span>${totals[d.id]}</span></div>`).join('')
-    : '';
-  // إدخال النصوص بأمان
-  [...$('totals').querySelectorAll('.line')].slice(1).forEach((el,i)=> el.firstChild.textContent = rows[i].text);
-  const c = $('clearTotals');
-  if(c) c.onclick = ()=>{ if(confirm('مسح المجموع الكلي لكل الأذكار؟')){ totals = {}; renderTotals(); save(); } };
+  const box = $('totals'); box.innerHTML = '';
+  if(!rows.length) return;
+  const head = document.createElement('div'); head.className='line sub';
+  head.innerHTML = '<span>مجموعك الكلي</span><button class="del" id="clearTotals">مسح المجموع</button>';
+  box.appendChild(head);
+  rows.forEach(d=>{
+    const l = document.createElement('div'); l.className='line';
+    const a = document.createElement('span'); a.textContent = d.text;
+    const b = document.createElement('span'); b.textContent = totals[d.id];
+    l.append(a,b); box.appendChild(l);
+  });
+  $('clearTotals').onclick = ()=>{
+    if(confirm('مسح المجموع الكلي لكل الأذكار؟')){ totals = {}; counts = {}; render(); renderTotals(); save(); }
+  };
 }
 
-function add(n){
+function add(id, n){
   if(n<=0) return;
-  const before = count, d = current();
-  count += n;
-  totals[d.id] = (totals[d.id]||0) + n;
+  const before = counts[id] || 0;
+  counts[id] = before + n;
+  totals[id] = (totals[id]||0) + n;
+  if(id!==currentId) selectDhikr(id);
   const el = $('count'); el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop');
   if(navigator.vibrate) navigator.vibrate(30);
-  if(target && before < target && count >= target){
+  if(target && before < target && counts[id] >= target){
     if(navigator.vibrate) navigator.vibrate([200,100,200]);
     $('msg').className = 'msg ok';
-    $('msg').textContent = `أتممت ${target} من «${d.text}» — تقبّل الله`;
+    $('msg').textContent = `أتممت ${target} من «${current().text}» — تقبّل الله`;
   }
   render(); renderTotals(); save();
 }
 
-$('tap').onclick = ()=>add(1);
+$('tap').onclick = ()=>add(currentId, 1);
 $('undo').onclick = ()=>{
-  if(count>0){ count--; const id=current().id; totals[id]=Math.max(0,(totals[id]||1)-1); render(); renderTotals(); save(); }
+  if(count()>0){ counts[currentId]--; totals[currentId]=Math.max(0,(totals[currentId]||1)-1); render(); renderTotals(); save(); }
 };
-$('reset').onclick = ()=>{ count=0; $('msg').textContent=''; render(); };
+$('reset').onclick = ()=>{ counts[currentId]=0; $('msg').textContent=''; render(); };
 $('target').onchange = e=>{
   const v = e.target.value;
   $('customTarget').hidden = v !== 'custom';
@@ -276,8 +363,9 @@ $('target').onchange = e=>{
   render();
 };
 $('customTarget').oninput = e=>{ target = Math.max(0, +e.target.value || 0); render(); };
+$('mode').onchange = e=>{ mode = e.target.value; save(); };
 
-// إدارة الأذكار المخصصة
+// ===== إدارة الأذكار المخصصة =====
 function openSheet(){ $('formMsg').textContent=''; renderMine(); $('sheet').classList.add('open'); setTimeout(()=>$('newText').focus(),50); }
 function closeSheet(){ $('sheet').classList.remove('open'); }
 $('closeSheet').onclick = closeSheet;
@@ -289,16 +377,13 @@ $('saveDhikr').onclick = ()=>{
   const t = parseInt($('newTarget').value) || 0;
   const fm = $('formMsg'); fm.className='msg';
   if(!normalize(text)){ fm.textContent = 'اكتب نص الذكر أولًا.'; return; }
-  if(key && !normalize(text).includes(normalize(key))){
-    fm.textContent = 'كلمة العدّ يجب أن تكون جزءًا من نص الذكر.'; return;
-  }
   if(all().some(d => normalize(d.text) === normalize(text))){ fm.textContent = 'هذا الذكر موجود بالفعل.'; return; }
-  const d = {id:'c'+Date.now(), text, key: key || text, target: t || undefined};
+  if(!words(key||text).some(w=>!STOP.has(w))){ fm.textContent = 'أضف كلمة مميزة غير لفظ الجلالة ليتعرف عليه التطبيق.'; return; }
+  const d = {id:'c'+Date.now(), text, key: key || undefined, target: t || undefined};
   custom.push(d);
-  currentId = d.id; count = 0;
   $('newText').value = $('newKey').value = $('newTarget').value = '';
   fm.className='msg ok'; fm.textContent = `أُضيف «${text}»`;
-  applyDefaultTarget(); buildChips(); render(); renderMine(); save();
+  selectDhikr(d.id); buildChips(); renderMine(); save();
 };
 
 function renderMine(){
@@ -312,15 +397,15 @@ function renderMine(){
     const b = document.createElement('button'); b.className='del'; b.textContent='حذف';
     b.onclick = ()=>{
       if(!confirm(`حذف «${d.text}»؟`)) return;
-      custom = custom.filter(x=>x.id!==d.id); delete totals[d.id];
-      if(currentId===d.id){ currentId='subhan'; count=0; }
+      custom = custom.filter(x=>x.id!==d.id); delete totals[d.id]; delete counts[d.id];
+      if(currentId===d.id) currentId='subhan';
       buildChips(); render(); renderTotals(); renderMine(); save();
     };
     row.append(s,b); box.appendChild(row);
   });
 }
 
-// التعرف على الكلام
+// ===== التعرف على الكلام =====
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
 let rec = null, listening = false;
 function setMic(on){
@@ -336,42 +421,49 @@ if(!SR){
 } else {
   rec = new SR();
   rec.lang = 'ar-SA';
-  // وضع الجملة الواحدة: أدقّ على أندرويد الذي يكرر النتائج في الوضع المستمر
-  rec.continuous = false;
+  rec.continuous = false;       // جملة بجملة: أدق على أندرويد
   rec.interimResults = true;
   rec.maxAlternatives = 1;
 
-  let sessionCounted = 0;   // ما حُسب في جلسة الاستماع الحالية
-  rec.onstart = ()=>{ sessionCounted = 0; };
+  let sessionCounted = {};      // ما حُسب في الجملة الحالية حتى لا يتكرر
+  rec.onstart = ()=>{ sessionCounted = {}; };
 
   rec.onresult = e=>{
-    // نأخذ آخر نتيجة فقط (تحتوي النص الكامل للجملة الحالية)
     const r = e.results[e.results.length - 1];
     const txt = r[0].transcript.trim();
     if(!r.isFinal){ $('heard').textContent = txt + '…'; return; }
-    const n = countMatches(txt, current());
-    const delta = Math.max(0, n - sessionCounted);   // لا نعدّ نفس الكلام مرتين
-    sessionCounted = Math.max(sessionCounted, n);
-    add(delta);
-    $('heard').textContent = n ? `«${txt}» (+${delta})` : `«${txt}» — لم يطابق الذكر المختار`;
+    const list = mode === 'one' ? [current()] : all();
+    const found = analyze(txt, list);
+    const parts = [];
+    for(const id in found){
+      const delta = Math.max(0, found[id] - (sessionCounted[id]||0));
+      sessionCounted[id] = Math.max(sessionCounted[id]||0, found[id]);
+      if(delta){
+        add(id, delta);
+        parts.push(`${all().find(d=>d.id===id).text} +${delta}`);
+      }
+    }
+    $('heard').textContent = parts.length ? `«${txt}»  ✓ ${parts.join('، ')}` : `«${txt}»`;
   };
   rec.onerror = e=>{
     if(e.error==='not-allowed' || e.error==='service-not-allowed'){
       $('msg').className='msg';
       $('msg').textContent = 'لم يُسمح باستخدام الميكروفون. فعّل الإذن من إعدادات التطبيق ثم أعد المحاولة.';
       setMic(false);
-    } else if(e.error==='network'){
+    } else if(e.error==='network' || e.error==='language-not-supported'){
       $('msg').className='msg';
-      $('msg').textContent = 'التعرف على الصوت يحتاج اتصالًا بالإنترنت. يمكنك العد يدويًا بالضغط على الدائرة.';
+      $('msg').textContent = 'التعرف على الصوت غير متاح بدون إنترنت على جهازك. نزّل حزمة العربية للتعرف دون اتصال من إعدادات Google، أو اضغط على الدائرة للعد يدويًا.';
       setMic(false);
     }
   };
-  // المتصفح يوقف الاستماع بعد فترة صمت؛ نعيد تشغيله تلقائيًا
   rec.onend = ()=>{ if(listening) setTimeout(()=>{ if(listening){ try{ rec.start(); }catch(_){} } }, 120); };
 
   $('mic').onclick = ()=>{
-    if(listening){ setMic(false); rec.stop(); }
-    else { $('msg').textContent=''; setMic(true); try{ rec.start(); }catch(_){} }
+    if(listening){ setMic(false); rec.stop(); return; }
+    $('msg').textContent='';
+    // التعرف على الجهاز مباشرة إن كان المتصفح يدعمه وكنت بدون إنترنت
+    if('processLocally' in rec) rec.processLocally = !navigator.onLine;
+    setMic(true); try{ rec.start(); }catch(_){}
   };
 }
 
