@@ -50,12 +50,9 @@
   .picker span{font-family:'Amiri',serif;font-size:calc(20px*var(--fs));line-height:1.45;
     display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
   .picker svg{width:18px;height:18px;flex:none;stroke:var(--gold);fill:none;stroke-width:2}
-  .fadl{width:100%;background:var(--gold-soft);border:none;border-inline-start:3px solid var(--gold);
-    border-radius:4px 12px 12px 4px;padding:8px 12px;text-align:right;cursor:pointer;display:flex;flex-direction:column;gap:2px}
-  .fadl.empty{visibility:hidden}
-  .fadl .txt{font-family:'Amiri',serif;font-size:calc(15.5px*var(--fs));line-height:1.6;max-height:3.2em;
-    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-  .fadl .src{font-size:12px;color:var(--gold)}
+  .fadl-row{display:flex;justify-content:center;min-height:26px}
+  .fadl-row .link{font-size:14px}
+  .fadl-row.empty{visibility:hidden}
 
   .stage{flex:1;min-height:0;display:flex;align-items:center;justify-content:center}
   .ringwrap{position:relative;height:100%;max-height:320px;aspect-ratio:1;max-width:100%}
@@ -238,10 +235,7 @@
       <span id="pickText"></span>
       <svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
     </button>
-    <button class="fadl" id="fadl" aria-label="فضل الذكر">
-      <span class="txt" id="fadlText"></span>
-      <span class="src" id="fadlSrc"></span>
-    </button>
+    <div class="fadl-row"><button class="link" id="fadl">فضل الذكر ▾</button></div>
     <div class="stage">
       <div class="ringwrap">
         <svg viewBox="0 0 300 300" id="ring"></svg>
@@ -361,6 +355,7 @@
     <h4>التنبيه عند العدّ</h4>
     <div class="setrow"><label for="optVibrate">اهتزاز</label><input type="checkbox" class="switch" id="optVibrate"></div>
     <div class="setrow"><label for="optSound">صوت خفيف</label><input type="checkbox" class="switch" id="optSound"></div>
+    <div class="setrow"><label for="optGoalSound">نغمة عند بلوغ الهدف</label><input type="checkbox" class="switch" id="optGoalSound"></div>
     <div class="setrow"><label for="optWake">إبقاء الشاشة مضاءة أثناء العدّ</label><input type="checkbox" class="switch" id="optWake"></div>
 
     <h4>التذكير اليومي</h4>
@@ -398,6 +393,8 @@ const BUILTIN = [
    fadl:'«من قال: سبحان الله وبحمده، في يوم مائة مرة، حُطّت خطاياه وإن كانت مثل زَبَد البحر»', src:'متفق عليه'},
   {id:'azim', text:'سبحان الله وبحمده، سبحان الله العظيم',
    fadl:'«كلمتان خفيفتان على اللسان، ثقيلتان في الميزان، حبيبتان إلى الرحمن: سبحان الله وبحمده، سبحان الله العظيم»', src:'متفق عليه'},
+  {id:'arbaa', text:'سبحان الله والحمد لله ولا إله إلا الله والله أكبر',
+   fadl:'«أحبّ الكلام إلى الله أربع: سبحان الله، والحمد لله، ولا إله إلا الله، والله أكبر، لا يضرّك بأيّهنّ بدأت»', src:'رواه مسلم'},
   {id:'istighfar', text:'أستغفر الله', alt:['استغفر الله العظيم','استغفر الله واتوب اليه'],
    fadl:'«والله إني لأستغفر الله وأتوب إليه في اليوم أكثر من سبعين مرة»', src:'رواه البخاري'},
   {id:'hawqala', text:'لا حول ولا قوة إلا بالله',
@@ -473,11 +470,15 @@ function matchAt(T, i, W){
 
 // يحلل الكلام ويُرجع عدد مرات كل ذكر
 // live=true: أثناء الكلام، نؤجل آخر ذكر فقط إن كان قد يكتمل لذكر أطول
+// استمرار الذكر الواحد عبر جملتين متتاليتين (المتصفح يقطع الكلام عند كل سكتة)
+let CARRY_IN = null, CARRY_OUT = null;
 function analyze(text, list, live){
   const T=words(text), result={};
   const seqs=list.flatMap(d=>[d.text, ...(d.alt||[]), ...(d.key&&d.key!==d.text?[d.key]:[])]
-    .map(s=>({d, W:words(s)})).filter(v=>v.W.length));
-  let i=0, prev=null, last=null;
+    .map((s,i)=>({d, key:d.id+'#'+i, W:words(s)})).filter(v=>v.W.length));
+  let i=0, last=null;
+  let prev = (CARRY_IN && Date.now()-CARRY_IN.t < 12000) ? {key:CARRY_IN.key, q:CARRY_IN.q, carried:true} : null;
+  CARRY_OUT = null;
   while(i<T.length){
     let win=null;
     for(const v of seqs){
@@ -486,13 +487,14 @@ function analyze(text, list, live){
     }
     if(win){
       // إكمال لنفس الترديدة (جزء لاحق من نفس الذكر) لا يُحسب مرة جديدة
-      const cont = prev && prev.v===win.v && win.m.p>=prev.q;
+      const cont = prev && prev.key===win.v.key && win.m.p>=prev.q && (!prev.carried || win.m.p>0);
       if(!cont) result[win.v.d.id]=(result[win.v.d.id]||0)+1;
       const W=win.v.W, id=win.v.d.id;
       const done = win.m.q===W.length && win.m.end<=T.length;
       const extendable = seqs.some(o=>o.W.length>W.length && W.every((w,x)=>same(w,o.W[x])));
       last = {id, counted:!cont, safe: done && !extendable};
-      prev={v:win.v, q:win.m.q};
+      prev={key:win.v.key, q:win.m.q};
+      CARRY_OUT = {key:win.v.key, q:win.m.q, t:Date.now()};
       i=win.m.end;
     }
     else i++;
@@ -509,15 +511,16 @@ const KURSI = 'الله لا إله إلا هو الحي القيوم، لا ت�
 const G_KURSI = [['سِنَة','النعاس'],['يئوده','يُثقله ويُتعبه']];
 const QULS = 'بسم الله الرحمن الرحيم: قل هو الله أحد • الله الصمد • لم يلد ولم يولد • ولم يكن له كفوا أحد.\n\nبسم الله الرحمن الرحيم: قل أعوذ برب الفلق • من شر ما خلق • ومن شر غاسق إذا وقب • ومن شر النفاثات في العقد • ومن شر حاسد إذا حسد.\n\nبسم الله الرحمن الرحيم: قل أعوذ برب الناس • ملك الناس • إله الناس • من شر الوسواس الخناس • الذي يوسوس في صدور الناس • من الجنة والناس.';
 const G_QULS = [['الصمد','السيد الذي يُقصد في الحوائج'],['كفوًا','مماثلًا ونظيرًا'],['غاسق إذا وقب','الليل إذا أظلم'],['النفاثات في العقد','السواحر ينفثن في العُقد'],['الخناس','الذي يختفي عند ذكر الله']];
+const QULS_M = QULS.replace(/بسم الله الرحمن الرحيم:?/g,'');
 const BAQARA = 'آمن الرسول بما أنزل إليه من ربه والمؤمنون، كل آمن بالله وملائكته وكتبه ورسله لا نفرق بين أحد من رسله، وقالوا سمعنا وأطعنا غفرانك ربنا وإليك المصير • لا يكلف الله نفسا إلا وسعها، لها ما كسبت وعليها ما اكتسبت، ربنا لا تؤاخذنا إن نسينا أو أخطأنا، ربنا ولا تحمل علينا إصرا كما حملته على الذين من قبلنا، ربنا ولا تحملنا ما لا طاقة لنا به، واعف عنا واغفر لنا وارحمنا، أنت مولانا فانصرنا على القوم الكافرين';
 const TAHLIL = 'لا إله إلا الله وحده لا شريك له، له الملك وله الحمد، وهو على كل شيء قدير';
 
 function daySet(m){
   const P = m ? {v:'أصبحنا', V:'وأصبح', s:'ما في هذا اليوم', a:'بعده'} : {v:'أمسينا', V:'وأمسى', s:'ما في هذه الليلة', a:'بعدها'};
   const list = [
-    {id:'kursi', title:'آية الكرسي', text:'أعوذ بالله من الشيطان الرجيم: '+KURSI, count:1, src:'رواه النسائي في الكبرى',
+    {id:'kursi', title:'آية الكرسي', text:'أعوذ بالله من الشيطان الرجيم: '+KURSI, match:KURSI, count:1, src:'رواه النسائي في الكبرى',
      fadl:'من قالها حين يصبح أُجير من الجن حتى يمسي، ومن قالها حين يمسي أُجير منهم حتى يصبح', gloss:G_KURSI},
-    {id:'quls', title:'الإخلاص والمعوذتان', text:QULS, count:3, src:'رواه أبو داود والترمذي', fadl:'«تكفيك من كل شيء»', gloss:G_QULS},
+    {id:'quls', title:'الإخلاص والمعوذتان', text:QULS, match:QULS_M, count:3, src:'رواه أبو داود والترمذي', fadl:'«تكفيك من كل شيء»', gloss:G_QULS},
     {id:'mulk', text:`${P.v} ${P.V} الملك لله، والحمد لله، لا إله إلا الله وحده لا شريك له، له الملك وله الحمد وهو على كل شيء قدير، رب أسألك خير ${P.s} وخير ما ${P.a}، وأعوذ بك من شر ${P.s} وشر ما ${P.a}، رب أعوذ بك من الكسل وسوء الكبر، رب أعوذ بك من عذاب في النار وعذاب في القبر`, count:1, src:'رواه مسلم',
      gloss:[['سوء الكبر','ما يصيب كبير السن من الخَرَف وضعف العقل']]},
     {id:'bika', text: m ? 'اللهم بك أصبحنا، وبك أمسينا، وبك نحيا، وبك نموت، وإليك النشور' : 'اللهم بك أمسينا، وبك أصبحنا، وبك نحيا، وبك نموت، وإليك المصير', count:1, src:'رواه الترمذي',
@@ -565,10 +568,10 @@ const SETS = {
      fadl:'من سبّح وحمد وكبّر ثلاثًا وثلاثين، وختم المائة بهذا الذكر، غُفرت خطاياه وإن كانت مثل زبد البحر'},
     {id:'p_kursi', title:'آية الكرسي', text:KURSI, count:1, src:'رواه النسائي في الكبرى',
      fadl:'من قرأها دبر كل صلاة مكتوبة لم يمنعه من دخول الجنة إلا أن يموت', gloss:G_KURSI},
-    {id:'p_quls', title:'الإخلاص والمعوذتان', text:QULS, count:1, src:'رواه أبو داود والترمذي والنسائي', gloss:G_QULS},
+    {id:'p_quls', title:'الإخلاص والمعوذتان', text:QULS, match:QULS_M, count:1, src:'رواه أبو داود والترمذي والنسائي', gloss:G_QULS},
   ]},
   sleep:{name:'أذكار النوم', items:[
-    {id:'s_quls', title:'الإخلاص والمعوذتان', text:'يجمع كفيه وينفث فيهما ويقرأ:\n'+QULS+'\n\nثم يمسح بهما ما استطاع من جسده، يبدأ برأسه ووجهه وما أقبل من جسده.', count:3, src:'رواه البخاري', match:QULS, gloss:G_QULS},
+    {id:'s_quls', title:'الإخلاص والمعوذتان', text:'يجمع كفيه وينفث فيهما ويقرأ:\n'+QULS+'\n\nثم يمسح بهما ما استطاع من جسده، يبدأ برأسه ووجهه وما أقبل من جسده.', count:3, src:'رواه البخاري', match:QULS_M, gloss:G_QULS},
     {id:'s_kursi', title:'آية الكرسي', text:KURSI, count:1, src:'رواه البخاري',
      fadl:'لم يزل عليه من الله حافظ، ولا يقربه شيطان حتى يصبح', gloss:G_KURSI},
     {id:'s_baqara', title:'آخر آيتين من سورة البقرة', text:BAQARA, count:1, src:'متفق عليه', fadl:'«من قرأ بالآيتين من آخر سورة البقرة في ليلة كفتاه»',
@@ -604,7 +607,7 @@ const store = {
     try{ window.localStorage.setItem(k,v); }catch(e){}
   }
 };
-const DEFAULT_SETTINGS = {method:'voice', theme:'dark', font:1, vibrate:true, sound:false, wake:true, mTime:'06:00', eTime:'17:00'};
+const DEFAULT_SETTINGS = {method:'voice', theme:'dark', font:1, vibrate:true, sound:false, goalSound:true, wake:true, mTime:'06:00', eTime:'17:00'};
 let custom=[], totals={}, counts={}, currentId='subhan', target=33, mode='auto';
 let tab='counter', setKey=defaultSet(), progress={}, daily={}, settings={...DEFAULT_SETTINGS};
 
@@ -667,6 +670,22 @@ function feedback(kind){
   }
 }
 
+function chime(){
+  if(!settings.goalSound) return;
+  try{
+    audioCtx = audioCtx || new (window.AudioContext||window.webkitAudioContext)();
+    if(audioCtx.state==='suspended') audioCtx.resume();
+    const t0 = audioCtx.currentTime;
+    [[880,0],[1174.7,.18],[1568,.36]].forEach(([f,d])=>{
+      const o=audioCtx.createOscillator(), g=audioCtx.createGain(), t=t0+d;
+      o.type='sine'; o.frequency.value=f;
+      g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(0.25,t+0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001,t+0.5);
+      o.connect(g).connect(audioCtx.destination); o.start(t); o.stop(t+0.6);
+    });
+  }catch(e){}
+}
+
 // ===== المسبحة =====
 function applyDefaultTarget(){
   const t = current().target;
@@ -678,7 +697,7 @@ function applyDefaultTarget(){
 }
 function selectDhikr(id){
   if(id===currentId) return;
-  currentId = id; setMsg('');
+  currentId = id; setMsg(''); carry = null; resetSession();
   applyDefaultTarget(); render(); save();
 }
 function buildRing(){
@@ -694,9 +713,7 @@ function buildRing(){
 function render(){
   const d = current(), n = count();
   $('pickText').textContent = d.text;
-  $('fadl').classList.toggle('empty', !d.fadl);
-  $('fadlText').textContent = d.fadl || '';
-  $('fadlSrc').textContent = d.src || '';
+  $('fadl').parentElement.classList.toggle('empty', !d.fadl);
   $('count').textContent = n;
   $('progress').textContent = target ? `من ${target}` : 'بلا حد';
   const lit = target ? Math.round(Math.min(n,target)/target*33) : (n%33 || (n?33:0));
@@ -708,17 +725,22 @@ function pop(el){ el.classList.remove('pop'); void el.offsetWidth; el.classList.
 function add(id, n){
   if(n<=0) return;
   const before = counts[id] || 0;
+  if(target && id===currentId && before >= target){ goalReached(); return; }
+  if(target && id===currentId) n = Math.min(n, target - before);
   counts[id] = before + n;
   totals[id] = (totals[id]||0) + n;
   logDay(n);
   if(id!==currentId) selectDhikr(id);
   pop($('count'));
-  if(target && before < target && counts[id] >= target){
-    feedback('goal'); setMsg(`أتممت ${target} — تقبّل الله`, true);
-  } else feedback('tick');
+  if(target && before < target && counts[id] >= target) goalReached();
+  else feedback('tick');
   render(); save();
 }
 
+function goalReached(){
+  feedback('goal'); chime();
+  setMsg(`أتممت ${target} — تقبّل الله`, true, {label:'متابعة', run:()=>{ counts[currentId]=0; setMsg(''); render(); }});
+}
 $('tap').onclick = ()=>add(currentId, 1);
 $('undo').onclick = ()=>{
   if(count()>0){ counts[currentId]--; totals[currentId]=Math.max(0,(totals[currentId]||1)-1); render(); save(); }
@@ -847,7 +869,11 @@ function renderCards(scroll){
     c.dataset.id = it.id; c.setAttribute('role','button'); c.tabIndex = 0;
     if(it.title){ const h=document.createElement('h3'); h.textContent=it.title; c.append(h); }
     const z=document.createElement('p'); z.className='z'; z.textContent=it.text; c.append(z);
-    if(it.fadl){ const f=document.createElement('p'); f.className='f'; f.textContent='فضله: '+it.fadl; c.append(f); }
+    if(it.fadl){
+      const det=document.createElement('details'), sm=document.createElement('summary'), pp=document.createElement('p');
+      sm.textContent='فضل الذكر'; pp.className='f'; pp.textContent=it.fadl;
+      det.append(sm,pp); det.onclick=e=>e.stopPropagation(); c.append(det);
+    }
     if(it.gloss){
       const det=document.createElement('details'), sm=document.createElement('summary'), dl=document.createElement('dl');
       sm.textContent='معاني الكلمات';
@@ -893,7 +919,7 @@ function tickItem(id, n){
   touchProg(); logDay(done[id]-before);
   const finishedNow = done[id]>=it.count;
   const allDone = !curItem();
-  if(allDone){ logDay(0, setKey); feedback('goal'); setMsg(`أتممت ${SETS[setKey].name} — تقبّل الله`, true); }
+  if(allDone){ logDay(0, setKey); feedback('goal'); chime(); setMsg(`أتممت ${SETS[setKey].name} — تقبّل الله`, true); }
   else feedback(finishedNow ? 'item' : 'tick');
   if(finishedNow) resetTracker();
   save();
@@ -903,20 +929,49 @@ function tickItem(id, n){
 }
 
 // تتبّع قراءة الأذكار الطويلة كلمة بكلمة
-let trk = {id:null, pos:0}, skipWords = 0;
-function resetTracker(){ trk = {id:null, pos:0}; skipWords = 0; }
-function trackLong(it, T){
+let trk = {id:null, pos:0, hits:0, start:0}, skipWords = 0;
+function resetTracker(){ trk = {id:null, pos:0, hits:0, start:0}; skipWords = 0; carry = null; }
+// يحتسب الذكر إذا سمع جزءًا وافيًا منه ولو جاء على عدة جمل متقطعة،
+// ويُسجّل عند السكتة أو عند بدء ترديدة جديدة، فلا تتكرر القراءة الواحدة
+function trackLong(it, T, final){
   const W = words(it.match || it.text);
-  if(trk.id!==it.id) trk = {id:it.id, pos:0};
+  const need = Math.min(W.length, Math.max(3, Math.min(Math.ceil(W.length*0.4), 7)));
+  const startWin = Math.max(3, Math.ceil(W.length*0.25));
+  const fromStart = () => trk.start <= (W.length<=10 ? 2 : Math.min(2, startWin));
+  if(trk.id!==it.id) trk = {id:it.id, pos:0, hits:0, start:0};
   let n = 0;
-  for(const t of T){
-    const win = trk.pos===0 ? Math.max(2, Math.ceil(W.length*0.2)) : (STOP.has(t) ? 2 : 8);
+  for(let i=0;i<T.length;i++){
+    const t = T[i];
+    const win = trk.pos===0 ? startWin : (STOP.has(t) ? 2 : 10);
     let hit = -1;
     for(let j=trk.pos; j<Math.min(W.length, trk.pos+win); j++){ if(same(W[j],t)){ hit=j; break; } }
-    if(hit>=0){
-      trk.pos = hit+1;
-      if(trk.pos >= Math.ceil(W.length*0.85)){ n++; trk.pos = 0; }
+    if(hit<0){
+      // ربما بدأ ترديدة جديدة من أول الذكر
+      if(trk.pos > startWin){
+        for(let j=0;j<=startWin && j<W.length;j++){
+          if(!same(W[j],t)) continue;
+          const a1 = T[i+1] && W[j+1] && same(W[j+1],T[i+1]);
+          const a2 = T[i+2] && W[j+2] && same(W[j+2],T[i+2]);
+          if((a1 && !STOP.has(W[j])) || (a1 && a2)){
+            if(trk.hits >= need && fromStart()) n++;
+            trk.pos = j+1; trk.hits = 1; trk.start = j;
+            hit = -2;
+          }
+          break;
+        }
+      }
+      continue;
     }
+    // العودة إلى أول الذكر = ترديدة جديدة
+    if(hit <= startWin && trk.pos > startWin){
+      if(trk.hits >= need && fromStart()) n++;
+      trk.hits = 0; trk.start = hit;
+    }
+    if(trk.hits === 0) trk.start = hit;
+    trk.hits++; trk.pos = hit+1;
+  }
+  if(final && trk.hits >= need && fromStart()){
+    n++; trk.pos = 0; trk.hits = 0; trk.start = 0;
   }
   return n;
 }
@@ -1104,10 +1159,11 @@ function stopMedia(){
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
 const isAndroid = /Android/i.test(navigator.userAgent);
 let rec = null, listening = false;
-let counted = {}, prevFound = {}, gotAny = false, lastFinal = '', longDone = false;
-function resetSession(){ counted = {}; prevFound = {}; longDone = false; skipWords = 0; }
+let counted = {}, prevFound = {}, gotAny = false, lastFinal = '', procN = 0, carry = null;
+function resetSession(){ counted = {}; prevFound = {}; procN = 0; skipWords = 0; }
 
 function startVoice(){
+  carry = null;
   if(!rec){ setMsg('العدّ بالصوت غير مدعوم هنا. استخدم Chrome أو اختر طريقة أخرى.'); return false; }
   lastFinal = '';
   if('processLocally' in rec) rec.processLocally = !navigator.onLine;
@@ -1115,7 +1171,7 @@ function startVoice(){
   try{ rec.start(); }catch(_){}
   return true;
 }
-function stopVoice(){ if(listening){ listening=false; try{ rec.stop(); }catch(_){} } }
+function stopVoice(){ carry = null; if(listening){ listening=false; try{ rec.stop(); }catch(_){} } }
 
 if(SR){
   rec = new SR();
@@ -1143,11 +1199,12 @@ if(SR){
       const it = curItem(); if(!it) return;
       const T = words(txt).slice(skipWords);
       if(words(it.match || it.text).length > 6){
-        if(!final || longDone) return;
-        longDone = true;
-        const n = trackLong(it, T);
+        const fresh = T.slice(procN);
+        procN = T.length;
+        const n = trackLong(it, fresh, final);
         if(n) tickItem(it.id, n);
       } else {
+        CARRY_IN = carry;
         const found = analyze(T.join(' '), [{id:it.id, text:it.match || it.text}], !final);
         const stable = final ? (found[it.id]||0) : Math.min(found[it.id]||0, prevFound[it.id]||0);
         const delta = stable - (counted[it.id]||0);
@@ -1156,15 +1213,18 @@ if(SR){
           counted[it.id] = stable;
           const left = it.count - (prog()[it.id]||0);
           tickItem(it.id, Math.min(delta, left));
-          if(delta >= left){ skipWords = words(txt).length; counted = {}; prevFound = {}; }
+          if(delta >= left){ skipWords = words(txt).length; counted = {}; prevFound = {}; procN = 0; }
         }
+        if(final) carry = CARRY_OUT;
       }
       if(final) lastFinal = normalize(txt);
       return;
     }
 
     const list = mode === 'one' ? [current()] : all();
+    CARRY_IN = carry;
     const found = analyze(txt, list, !final);
+    if(final) carry = CARRY_OUT;
     const ids = new Set([...Object.keys(found), ...Object.keys(prevFound)]);
     for(const id of ids){
       const stable = final ? (found[id]||0) : Math.min(found[id]||0, prevFound[id]||0);
@@ -1241,6 +1301,7 @@ function renderSettings(){
   $('fontSize').value = settings.font;
   $('optVibrate').checked = settings.vibrate;
   $('optSound').checked = settings.sound;
+  $('optGoalSound').checked = settings.goalSound;
   $('optWake').checked = settings.wake;
   $('mTime').value = settings.mTime;
   $('eTime').value = settings.eTime;
@@ -1249,6 +1310,7 @@ document.querySelectorAll('[data-theme-btn]').forEach(b=>b.onclick=()=>{ setting
 $('fontSize').oninput = e=>{ settings.font=+e.target.value; applySettings(); save(); };
 $('optVibrate').onchange = e=>{ settings.vibrate=e.target.checked; save(); if(settings.vibrate) feedback('tick'); };
 $('optSound').onchange = e=>{ settings.sound=e.target.checked; save(); if(settings.sound) feedback('tick'); };
+$('optGoalSound').onchange = e=>{ settings.goalSound=e.target.checked; save(); if(settings.goalSound) chime(); };
 $('optWake').onchange = e=>{ settings.wake=e.target.checked; save(); if(!settings.wake) wakeOff(); else if(active) wakeOn(); };
 $('mTime').onchange = e=>{ settings.mTime=e.target.value||'06:00'; save(); };
 $('eTime').onchange = e=>{ settings.eTime=e.target.value||'17:00'; save(); };
