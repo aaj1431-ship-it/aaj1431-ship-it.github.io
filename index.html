@@ -2,7 +2,7 @@
 <html lang="ar" dir="rtl" data-theme="dark">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#0E2A2B">
 <title>المسبحة الصوتية</title>
 <link rel="manifest" href="manifest.json">
@@ -20,7 +20,7 @@
     --on-gold:#FFFDF7; --shade:rgba(40,30,10,.45);
   }
   *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
-  html,body{height:100%;overflow:hidden;overscroll-behavior:none}
+  html,body{height:100%;overflow:hidden;overscroll-behavior:none;-webkit-text-size-adjust:100%;text-size-adjust:100%}
   body{font-family:'Tajawal',system-ui,sans-serif;color:var(--ink);
     background:radial-gradient(circle at 50% 0%,var(--bg1),var(--bg2) 70%);
     display:flex;justify-content:center;touch-action:manipulation;user-select:none}
@@ -130,6 +130,15 @@
   .tapzone .tz-count{font-size:clamp(90px,22dvh,160px);font-weight:700;color:var(--gold);line-height:1;font-variant-numeric:tabular-nums}
   .tapzone .tz-exit{position:absolute;top:calc(env(safe-area-inset-top) + 14px);inset-inline-end:16px;
     border:1px solid var(--bead);background:var(--panel);border-radius:12px;padding:8px 16px;font-size:15px;cursor:pointer}
+  .tapzone .tz-lock{position:absolute;top:calc(env(safe-area-inset-top) + 14px);inset-inline-start:16px;
+    border:1px solid var(--bead);background:var(--panel);border-radius:12px;padding:8px 14px;font-size:15px;cursor:pointer;color:inherit}
+  .tapzone.locked .tz-exit,.tapzone.locked .tz-lock{display:none}
+  .tapzone .tz-hint{font-size:14px;color:var(--mist)}
+  .tapzone.locked .tz-tap{display:none}
+  .tz-unlock{position:absolute;bottom:calc(env(safe-area-inset-bottom) + 26px);display:flex;flex-direction:column;align-items:center;gap:8px;font-size:15px;color:var(--gold)}
+  .tz-ring{width:52px;height:52px;border-radius:50%;border:3px solid var(--bead);position:relative}
+  .tz-ring i{position:absolute;inset:-3px;border-radius:50%;border:3px solid var(--gold);clip-path:inset(0 0 100% 0);transition:clip-path .1s linear}
+  .tapzone:not(.locked) .tz-unlock{display:none}
   .tapzone .tz-flash{position:absolute;inset:0;background:var(--gold);opacity:0;pointer-events:none}
   .tapzone .tz-flash.on{animation:flash .25s}
   @keyframes flash{0%{opacity:.14}100%{opacity:0}}
@@ -189,6 +198,10 @@
   .week i{display:block;width:100%;border-radius:5px 5px 2px 2px;background:var(--gold);min-height:3px}
   .week small{font-size:11px;color:var(--mist)}
   .week em{font-style:normal;font-size:11px;color:var(--mist)}
+  .wline{padding:6px 0}
+  .wtop{display:flex;justify-content:space-between;gap:10px;font-size:15px;margin-bottom:5px}
+  .wtop span{font-family:'Amiri',serif}
+  .wtop b{color:var(--gold);font-variant-numeric:tabular-nums}
   .dots{display:flex;gap:3px;justify-content:center}
   .dots s{width:6px;height:6px;border-radius:50%;background:var(--bead);text-decoration:none}
   .dots s.m{background:var(--gold)}
@@ -279,10 +292,12 @@
 <div class="tapzone" id="tapzone" role="button" aria-label="اضغط في أي مكان للعدّ">
   <div class="tz-flash" id="tzFlash"></div>
   <button class="tz-exit" id="tzExit">إنهاء</button>
+  <button class="tz-lock" id="tzLock">🔒 قفل الشاشة</button>
   <div class="tz-name" id="tzName"></div>
   <div class="tz-count" id="tzCount">0</div>
   <div class="sub" id="tzSub"></div>
-  <div class="sub" style="margin-top:18px">اضغط في أي مكان على الشاشة</div>
+  <div class="sub tz-tap" style="margin-top:18px">اضغط في أي مكان على الشاشة</div>
+  <div class="tz-unlock"><div class="tz-ring"><i id="tzRing"></i></div><span>الشاشة مقفلة — استمر بالضغط للفتح</span></div>
 </div>
 
 <!-- قائمة أذكار المسبحة -->
@@ -334,9 +349,20 @@
     <h4>آخر ٧ أيام</h4>
     <div class="week" id="week"></div>
     <p class="hint">النقطتان تحت كل يوم: أذكار الصباح ثم المساء.</p>
+    <h4 id="wirdHead">وردي اليوم</h4>
+    <div id="wirdBox"></div>
     <h4>مجموع المسبحة</h4>
     <div id="totals"></div>
     <button class="del" id="clearTotals" style="align-self:flex-start;padding:8px 14px">مسح المجموع</button>
+  </div>
+</div>
+
+<!-- الورد اليومي -->
+<div class="sheet" id="wirdSheet">
+  <div class="panel" role="dialog" aria-labelledby="wirdTitle">
+    <div class="panel-head"><h2 id="wirdTitle">وردي اليومي</h2><button class="close" data-close aria-label="إغلاق">×</button></div>
+    <p class="hint">اكتب العدد الذي تريد الالتزام به يوميًا لكل ذكر، واترك الخانة فارغة لما لا تريده. يبدأ العدّ من جديد كل يوم.</p>
+    <div id="wirdList"></div>
   </div>
 </div>
 
@@ -358,14 +384,26 @@
     <div class="setrow"><label for="optGoalSound">نغمة عند بلوغ الهدف</label><input type="checkbox" class="switch" id="optGoalSound"></div>
     <div class="setrow"><label for="optWake">إبقاء الشاشة مضاءة أثناء العدّ</label><input type="checkbox" class="switch" id="optWake"></div>
 
+    <h4>الورد اليومي</h4>
+    <button class="btn line" id="openWird">تحديد وردي اليومي</button>
+
     <h4>التذكير اليومي</h4>
+    <div class="setrow"><label for="optNotify">إشعارات التذكير</label><input type="checkbox" class="switch" id="optNotify"></div>
+    <p class="hint" id="notifyHint"></p>
     <div class="setrow"><label for="mTime">أذكار الصباح</label><input type="time" id="mTime"></div>
     <div class="setrow"><label for="eTime">أذكار المساء</label><input type="time" id="eTime"></div>
+    <div class="setrow"><label for="sTime">أذكار النوم</label><input type="time" id="sTime"></div>
+    <div class="setrow"><label for="wTime">الورد اليومي</label><input type="time" id="wTime"></div>
+    <h4>تذكير مضمون في تقويم Google</h4>
     <div class="row2">
-      <button class="btn line" id="calMorning">تذكير الصباح في التقويم</button>
-      <button class="btn line" id="calEvening">تذكير المساء في التقويم</button>
+      <button class="btn line" id="calMorning">الصباح</button>
+      <button class="btn line" id="calEvening">المساء</button>
     </div>
-    <p class="hint">يُضاف تذكير يومي متكرر في تقويم Google فيصلك في وقته حتى لو كان التطبيق مغلقًا. وعند فتح التطبيق بعد الوقت المحدد يذكّرك إن لم تقرأها.</p>
+    <div class="row2">
+      <button class="btn line" id="calSleep">النوم</button>
+      <button class="btn line" id="calWird">الورد</button>
+    </div>
+    <p class="hint">إشعارات التطبيق تصل ما دام التطبيق يعمل أو مفتوحًا في الخلفية. أما تذكير التقويم فيصلك في وقته دائمًا حتى لو كان التطبيق مغلقًا.</p>
 
     <h4>بياناتي</h4>
     <div class="row2">
@@ -395,8 +433,12 @@ const BUILTIN = [
    fadl:'«كلمتان خفيفتان على اللسان، ثقيلتان في الميزان، حبيبتان إلى الرحمن: سبحان الله وبحمده، سبحان الله العظيم»', src:'متفق عليه'},
   {id:'arbaa', text:'سبحان الله والحمد لله ولا إله إلا الله والله أكبر',
    fadl:'«أحبّ الكلام إلى الله أربع: سبحان الله، والحمد لله، ولا إله إلا الله، والله أكبر، لا يضرّك بأيّهنّ بدأت»', src:'رواه مسلم'},
-  {id:'istighfar', text:'أستغفر الله', alt:['استغفر الله العظيم','استغفر الله واتوب اليه'],
+  {id:'istighfar', text:'أستغفر الله', alt:['استغفر الله العظيم'],
    fadl:'«والله إني لأستغفر الله وأتوب إليه في اليوم أكثر من سبعين مرة»', src:'رواه البخاري'},
+  {id:'tawba', text:'أستغفر الله وأتوب إليه',
+   fadl:'قال ﷺ: «والله إني لأستغفر الله وأتوب إليه في اليوم أكثر من سبعين مرة»', src:'رواه البخاري'},
+  {id:'yahayy', text:'يا حي يا قيوم برحمتك أستغيث، أصلح لي شأني كله، ولا تكلني إلى نفسي طرفة عين',
+   fadl:'كان النبي ﷺ يقولها إذا كربه أمر، ويأمر بها فاطمة رضي الله عنها في الصباح والمساء', src:'رواه النسائي في الكبرى والحاكم'},
   {id:'hawqala', text:'لا حول ولا قوة إلا بالله',
    fadl:'قال النبي ﷺ لأبي موسى الأشعري: «ألا أدلّك على كنز من كنوز الجنة؟» فقلت: بلى يا رسول الله، قال: «لا حول ولا قوة إلا بالله»', src:'متفق عليه'},
   {id:'salat', text:'اللهم صلِّ على محمد', alt:['اللهم صلي علي محمد','اللهم صلي وسلم علي نبينا محمد','صلي الله عليه وسلم'],
@@ -607,7 +649,8 @@ const store = {
     try{ window.localStorage.setItem(k,v); }catch(e){}
   }
 };
-const DEFAULT_SETTINGS = {method:'voice', theme:'dark', font:1, vibrate:true, sound:false, goalSound:true, wake:true, mTime:'06:00', eTime:'17:00'};
+const DEFAULT_SETTINGS = {method:'voice', theme:'dark', font:1, vibrate:true, sound:false, goalSound:true, wake:true,
+  mTime:'06:00', eTime:'17:00', sTime:'22:00', wTime:'20:00', notify:false, wird:{}};
 let custom=[], totals={}, counts={}, currentId='subhan', target=33, mode='auto';
 let tab='counter', setKey=defaultSet(), progress={}, daily={}, settings={...DEFAULT_SETTINGS};
 
@@ -639,14 +682,15 @@ async function load(){
   const raw = await store.get('tasbih-state');
   if(raw){ try{ applyState(JSON.parse(raw)); }catch(e){} }
   applySettings(); applyDefaultTarget(); render(); showTab(tab); renderMethod(); save();
-  remind();
+  remind(); checkNotify();
 }
 let saveTimer=null;
 function save(){ clearTimeout(saveTimer); saveTimer=setTimeout(()=>store.set('tasbih-state', JSON.stringify(exportState())),150); }
 
-function logDay(n, setDone){
+function logDay(n, setDone, id){
   const k = dayKey(); const d = daily[k] || (daily[k] = {c:0, s:{}});
   if(n) d.c += n;
+  if(n && id){ d.d = d.d || {}; d.d[id] = (d.d[id]||0) + n; }
   if(setDone) d.s[setDone] = 1;
   const keys = Object.keys(daily).sort();
   while(keys.length > 400) delete daily[keys.shift()];
@@ -729,11 +773,15 @@ function add(id, n){
   if(target && id===currentId) n = Math.min(n, target - before);
   counts[id] = before + n;
   totals[id] = (totals[id]||0) + n;
-  logDay(n);
+  logDay(n, null, id);
   if(id!==currentId) selectDhikr(id);
   pop($('count'));
   if(target && before < target && counts[id] >= target) goalReached();
   else feedback('tick');
+  if(settings.wird[id] && wirdDone(id) - n < settings.wird[id] && wirdDone(id) >= settings.wird[id]){
+    chime();
+    setMsg(wirdComplete() ? 'أتممت وردك اليومي كاملًا — تقبّل الله' : `أتممت وردك من «${byId(id).text}»`, true);
+  }
   render(); save();
 }
 
@@ -756,7 +804,7 @@ $('target').onchange = e=>{
 $('customTarget').oninput = e=>{ target = Math.max(0, +e.target.value || 0); render(); };
 
 // ===== النوافذ =====
-function openSheet(id){ $(id).classList.add('open'); }
+function openSheet(id){ closeSheets(); $(id).classList.add('open'); }
 function closeSheets(){ document.querySelectorAll('.sheet').forEach(s=>s.classList.remove('open')); }
 document.querySelectorAll('.sheet').forEach(s=>{
   s.addEventListener('click', e=>{ if(e.target===s || e.target.hasAttribute('data-close')) closeSheets(); });
@@ -929,49 +977,46 @@ function tickItem(id, n){
 }
 
 // تتبّع قراءة الأذكار الطويلة كلمة بكلمة
-let trk = {id:null, pos:0, hits:0, start:0}, skipWords = 0;
-function resetTracker(){ trk = {id:null, pos:0, hits:0, start:0}; skipWords = 0; carry = null; }
+let trk = {id:null, pos:0, hits:0, cool:false, miss:0}, skipWords = 0;
+function resetTracker(){ trk = {id:null, pos:0, hits:0, cool:false, miss:0}; skipWords = 0; carry = null; }
 // يحتسب الذكر إذا سمع جزءًا وافيًا منه ولو جاء على عدة جمل متقطعة،
 // ويُسجّل عند السكتة أو عند بدء ترديدة جديدة، فلا تتكرر القراءة الواحدة
-function trackLong(it, T, final){
+function trackLong(it, T){
   const W = words(it.match || it.text);
-  const need = Math.min(W.length, Math.max(3, Math.min(Math.ceil(W.length*0.4), 7)));
   const startWin = Math.max(3, Math.ceil(W.length*0.25));
-  const fromStart = () => trk.start <= (W.length<=10 ? 2 : Math.min(2, startWin));
-  if(trk.id!==it.id) trk = {id:it.id, pos:0, hits:0, start:0};
+  const endZone = W.length - Math.max(1, Math.round(W.length*0.06));   // آخر كلمات الذكر
+  if(trk.id!==it.id) trk = {id:it.id, pos:0, hits:0, cool:false, miss:0};
   let n = 0;
   for(let i=0;i<T.length;i++){
     const t = T[i];
-    const win = trk.pos===0 ? startWin : (STOP.has(t) ? 2 : 10);
+    if(STOP.has(t) && trk.hits===0) continue;
     let hit = -1;
-    for(let j=trk.pos; j<Math.min(W.length, trk.pos+win); j++){ if(same(W[j],t)){ hit=j; break; } }
-    if(hit<0){
-      // ربما بدأ ترديدة جديدة من أول الذكر
-      if(trk.pos > startWin){
-        for(let j=0;j<=startWin && j<W.length;j++){
-          if(!same(W[j],t)) continue;
-          const a1 = T[i+1] && W[j+1] && same(W[j+1],T[i+1]);
-          const a2 = T[i+2] && W[j+2] && same(W[j+2],T[i+2]);
-          if((a1 && !STOP.has(W[j])) || (a1 && a2)){
-            if(trk.hits >= need && fromStart()) n++;
-            trk.pos = j+1; trk.hits = 1; trk.start = j;
-            hit = -2;
-          }
-          break;
-        }
+    if(trk.hits===0){
+      // بداية ترديدة: بعد احتساب ترديدة لا نقبل إلا البدء من أول الذكر
+      const limit = trk.cool ? Math.min(W.length, startWin+1) : W.length;
+      for(let j=0;j<limit;j++){
+        if(!same(W[j],t)) continue;
+        if(hit<0) hit=j;                                   // أول احتمال
+        if(!T[i+1] || (W[j+1] && same(W[j+1],T[i+1]))){ hit=j; break; }   // الأقرب لسياق الكلام
       }
+      if(hit>=0) trk.cool = false;
+    } else {
+      const win = STOP.has(t) ? 2 : 10;
+      for(let j=trk.pos; j<Math.min(W.length, trk.pos+win); j++){ if(same(W[j],t)){ hit=j; break; } }
+      if(hit<0 && trk.pos>startWin && !STOP.has(t)){     // عاد إلى أول الذكر: ترديدة جديدة
+        for(let j=0;j<=startWin && j<W.length;j++){ if(same(W[j],t)){ hit=j; trk.hits=0; break; } }
+      }
+    }
+    if(hit<0){
+      // ضاع التتبّع (قفز في القراءة أو خطأ في السماع): نعيد البحث من جديد
+      if(trk.hits>0 && ++trk.miss >= 3){ trk.hits = 0; trk.miss = 0; }
       continue;
     }
-    // العودة إلى أول الذكر = ترديدة جديدة
-    if(hit <= startWin && trk.pos > startWin){
-      if(trk.hits >= need && fromStart()) n++;
-      trk.hits = 0; trk.start = hit;
-    }
-    if(trk.hits === 0) trk.start = hit;
+    trk.miss = 0;
     trk.hits++; trk.pos = hit+1;
-  }
-  if(final && trk.hits >= need && fromStart()){
-    n++; trk.pos = 0; trk.hits = 0; trk.start = 0;
+    if(trk.pos >= endZone && trk.hits >= Math.min(3, W.length)){   // بلغ آخر الذكر
+      n++; trk.pos = 0; trk.hits = 0; trk.miss = 0; trk.cool = true;
+    }
   }
   return n;
 }
@@ -1052,12 +1097,12 @@ document.addEventListener('visibilitychange', ()=>{
   if(document.hidden) return;
   if(active) wakeOn();
   if(tab==='adhkar') renderCards(false);
-  remind();
+  remind(); checkNotify();
 });
 
 // --- النقر على الشاشة
 function startTap(){ $('tapzone').classList.add('open'); renderTapzone(); return true; }
-function stopTap(){ $('tapzone').classList.remove('open'); }
+function stopTap(){ tzLocked=false; endUnlock(); $('tapzone').classList.remove('open','locked'); }
 function renderTapzone(){
   if(!$('tapzone').classList.contains('open')) return;
   if(tab==='counter'){
@@ -1072,10 +1117,33 @@ function renderTapzone(){
     $('tzSub').textContent = it ? `من ${it.count}` : '';
   }
 }
+let tzLocked = false, unlockTimer = null, unlockStart = 0;
+$('tzLock').onclick = ()=>{
+  tzLocked = true; $('tapzone').classList.add('locked');
+  if(navigator.vibrate && settings.vibrate) navigator.vibrate(40);
+};
+function endUnlock(){
+  clearInterval(unlockTimer); unlockTimer = null; $('tzRing').style.clipPath = 'inset(0 0 100% 0)';
+}
 $('tapzone').addEventListener('pointerdown', e=>{
-  if(e.target.closest('#tzExit')) return;
-  e.preventDefault(); countOne(); pop($('tzCount'));
+  if(e.target.closest('#tzExit') || e.target.closest('#tzLock')) return;
+  e.preventDefault();
+  if(tzLocked){
+    unlockStart = Date.now();
+    endUnlock();
+    unlockTimer = setInterval(()=>{
+      const r = Math.min(1, (Date.now()-unlockStart)/2000);
+      $('tzRing').style.clipPath = `inset(0 0 ${100-r*100}% 0)`;
+      if(r>=1){
+        endUnlock(); tzLocked = false; $('tapzone').classList.remove('locked');
+        if(navigator.vibrate && settings.vibrate) navigator.vibrate([40,60,40]);
+      }
+    }, 60);
+    return;
+  }
+  countOne(); pop($('tzCount'));
 });
+['pointerup','pointercancel','pointerleave'].forEach(ev=>$('tapzone').addEventListener(ev, endUnlock));
 $('tzExit').onclick = ()=>stopActive();
 
 // --- تمرير اليد فوق الكاميرا
@@ -1201,7 +1269,7 @@ if(SR){
       if(words(it.match || it.text).length > 6){
         const fresh = T.slice(procN);
         procN = T.length;
-        const n = trackLong(it, fresh, final);
+        const n = trackLong(it, fresh);
         if(n) tickItem(it.id, n);
       } else {
         CARRY_IN = carry;
@@ -1275,6 +1343,19 @@ function renderStats(){
     wk.append(col);
   });
 
+  const wIds = wirdIds();
+  $('wirdBox').innerHTML = '';
+  $('wirdHead').hidden = !wIds.length;
+  wIds.forEach(id=>{
+    const goal = settings.wird[id], now = Math.min(wirdDone(id), goal);
+    const d = document.createElement('div'); d.className='wline';
+    d.innerHTML = '<div class="wtop"><span></span><b></b></div><div class="bar"><i></i></div>';
+    d.querySelector('span').textContent = byId(id).text;
+    d.querySelector('b').textContent = `${now} / ${goal}`;
+    d.querySelector('i').style.width = (now/goal*100)+'%';
+    $('wirdBox').append(d);
+  });
+
   const rows = all().filter(d=>totals[d.id]);
   const box = $('totals'); box.innerHTML = '';
   $('clearTotals').hidden = !rows.length;
@@ -1289,6 +1370,32 @@ function renderStats(){
 $('clearTotals').onclick = ()=>{
   if(confirm('مسح مجموع المسبحة لكل الأذكار؟')){ totals = {}; counts = {}; render(); renderStats(); save(); }
 };
+
+// ===== الورد اليومي =====
+const wirdIds = () => Object.keys(settings.wird||{}).filter(id => settings.wird[id] > 0 && byId(id));
+const wirdDone = id => daily[dayKey()]?.d?.[id] || 0;
+function wirdComplete(){ const ids = wirdIds(); return ids.length && ids.every(id => wirdDone(id) >= settings.wird[id]); }
+
+$('openWird').onclick = ()=>{ renderWird(); openSheet('wirdSheet'); };
+function renderWird(){
+  const box = $('wirdList'); box.innerHTML='';
+  all().forEach(d=>{
+    const row = document.createElement('div'); row.className='setrow';
+    const lab = document.createElement('label'); lab.style.fontFamily="'Amiri',serif"; lab.style.fontSize='17px';
+    lab.textContent = d.text; lab.htmlFor = 'w_'+d.id;
+    const inp = document.createElement('input'); inp.type='number'; inp.min='1'; inp.inputMode='numeric';
+    inp.id='w_'+d.id; inp.placeholder='—'; inp.style.width='80px'; inp.style.textAlign='center';
+    inp.style.background='transparent'; inp.style.border='1px solid var(--bead)'; inp.style.borderRadius='8px'; inp.style.padding='6px';
+    inp.value = settings.wird[d.id] || '';
+    inp.onchange = ()=>{
+      const v = parseInt(inp.value)||0;
+      if(v>0) settings.wird[d.id]=v; else delete settings.wird[d.id];
+      save(); renderStatsIfOpen();
+    };
+    row.append(lab, inp); box.append(row);
+  });
+}
+function renderStatsIfOpen(){ if($('statsSheet').classList.contains('open')) renderStats(); }
 
 // ===== الإعدادات =====
 function applySettings(){
@@ -1305,6 +1412,12 @@ function renderSettings(){
   $('optWake').checked = settings.wake;
   $('mTime').value = settings.mTime;
   $('eTime').value = settings.eTime;
+  $('sTime').value = settings.sTime;
+  $('wTime').value = settings.wTime;
+  $('optNotify').checked = settings.notify && Notification?.permission === 'granted';
+  $('notifyHint').textContent = !('Notification' in window) ? 'هذا المتصفح لا يدعم الإشعارات.'
+    : Notification.permission === 'denied' ? 'الإشعارات محظورة لهذا الموقع. فعّلها من إعدادات المتصفح أو التطبيق.'
+    : 'يصلك تنبيه عند وقت كل ورد إن لم تُتمّه.';
 }
 document.querySelectorAll('[data-theme-btn]').forEach(b=>b.onclick=()=>{ settings.theme=b.dataset.themeBtn; applySettings(); renderSettings(); save(); });
 $('fontSize').oninput = e=>{ settings.font=+e.target.value; applySettings(); save(); };
@@ -1314,6 +1427,17 @@ $('optGoalSound').onchange = e=>{ settings.goalSound=e.target.checked; save(); i
 $('optWake').onchange = e=>{ settings.wake=e.target.checked; save(); if(!settings.wake) wakeOff(); else if(active) wakeOn(); };
 $('mTime').onchange = e=>{ settings.mTime=e.target.value||'06:00'; save(); };
 $('eTime').onchange = e=>{ settings.eTime=e.target.value||'17:00'; save(); };
+$('sTime').onchange = e=>{ settings.sTime=e.target.value||'22:00'; save(); };
+$('wTime').onchange = e=>{ settings.wTime=e.target.value||'20:00'; save(); };
+$('optNotify').onchange = async e=>{
+  if(!e.target.checked){ settings.notify=false; save(); return; }
+  if(!('Notification' in window)){ e.target.checked=false; renderSettings(); return; }
+  const perm = Notification.permission === 'granted' ? 'granted' : await Notification.requestPermission();
+  settings.notify = perm === 'granted';
+  e.target.checked = settings.notify;
+  renderSettings(); save();
+  if(settings.notify) notify('تم تفعيل التذكير', 'سيصلك تنبيه عند وقت كل ورد بإذن الله');
+};
 
 function calendarLink(title, time){
   const [h,m] = time.split(':').map(Number);
@@ -1327,19 +1451,54 @@ function calendarLink(title, time){
 }
 $('calMorning').onclick = ()=>window.open(calendarLink('أذكار الصباح 🌅', settings.mTime), '_blank');
 $('calEvening').onclick = ()=>window.open(calendarLink('أذكار المساء 🌙', settings.eTime), '_blank');
+$('calSleep').onclick = ()=>window.open(calendarLink('أذكار النوم 🌙', settings.sTime), '_blank');
+$('calWird').onclick = ()=>window.open(calendarLink('وردي اليومي 📿', settings.wTime), '_blank');
+
+const toMin = t=>{ const [h,m]=(t||'0:0').split(':').map(Number); return h*60+m; };
+const setDoneToday = k => !!daily[dayKey()]?.s?.[k];
+
+// ما الورد المستحق الآن؟
+function dueNow(){
+  const mins = new Date().getHours()*60 + new Date().getMinutes();
+  const m = toMin(settings.mTime), e = toMin(settings.eTime), sl = toMin(settings.sTime), w = toMin(settings.wTime);
+  const list = [];
+  if(mins>=m && mins<Math.min(e, 12*60) && !setDoneToday('morning')) list.push({k:'morning', kind:'set', name:'أذكار الصباح'});
+  if(mins>=e && !setDoneToday('evening')) list.push({k:'evening', kind:'set', name:'أذكار المساء'});
+  if(mins>=sl && !setDoneToday('sleep')) list.push({k:'sleep', kind:'set', name:'أذكار النوم'});
+  if(mins>=w && wirdIds().length && !wirdComplete()) list.push({k:'wird', kind:'wird', name:'وردك اليومي'});
+  return list;
+}
 
 function remind(){
   if(active || $('msg').textContent) return;
-  const now = new Date(), mins = now.getHours()*60+now.getMinutes();
-  const toMin = t=>{ const [h,m]=t.split(':').map(Number); return h*60+m; };
-  const doneToday = k => daily[dayKey()]?.s?.[k];
-  const m = toMin(settings.mTime), e = toMin(settings.eTime);
-  let k = null;
-  if(mins>=e && !doneToday('evening')) k='evening';
-  else if(mins>=m && mins<Math.min(e,12*60) && !doneToday('morning')) k='morning';
-  if(!k) return;
-  setMsg(`لم تُتمّ ${SETS[k].name} اليوم.`, true, {label:'ابدأ الآن', run:()=>{ setMsg(''); setKey=k; showTab('adhkar'); }});
+  const due = dueNow(); if(!due.length) return;
+  const d = due[due.length-1];
+  setMsg(`لم تُتمّ ${d.name} اليوم.`, true, {label:'ابدأ الآن', run:()=>{
+    setMsg('');
+    if(d.kind==='set'){ setKey=d.k; showTab('adhkar'); }
+    else { const id = wirdIds().find(x=>wirdDone(x) < settings.wird[x]); if(id){ showTab('counter'); selectDhikr(id); } }
+  }});
 }
+
+function notify(title, body){
+  if(!('Notification' in window) || Notification.permission!=='granted') return;
+  const opts = {body, icon:'icons/icon-192.png', badge:'icons/icon-192.png', tag:'tasbih', lang:'ar', dir:'rtl'};
+  navigator.serviceWorker?.getRegistration().then(reg=>{
+    if(reg) reg.showNotification(title, opts); else new Notification(title, opts);
+  }).catch(()=>{ try{ new Notification(title, opts); }catch(e){} });
+}
+function checkNotify(){
+  if(!settings.notify) return;
+  const k = dayKey(); const d = daily[k] || (daily[k] = {c:0, s:{}});
+  d.n = d.n || {};
+  dueNow().forEach(x=>{
+    if(d.n[x.k]) return;
+    d.n[x.k] = 1;
+    notify('المسبحة', `حان وقت ${x.name}`);
+  });
+  save();
+}
+setInterval(checkNotify, 60000);
 
 $('exportData').onclick = ()=>{
   const blob = new Blob([JSON.stringify({app:'tasbih', v:1, date:new Date().toISOString(), data:exportState()}, null, 1)], {type:'application/json'});
@@ -1408,6 +1567,16 @@ $('shareImage').onclick = async ()=>{
     const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='dhikr.png'; document.body.append(a); a.click(); a.remove();
   }
 };
+
+// منع التكبير بالأصابع أو بالنقر المزدوج
+['gesturestart','gesturechange','gestureend'].forEach(ev=>document.addEventListener(ev, e=>e.preventDefault(), {passive:false}));
+document.addEventListener('touchmove', e=>{ if(e.touches.length>1) e.preventDefault(); }, {passive:false});
+let lastTouchEnd = 0;
+document.addEventListener('touchend', e=>{
+  const now = Date.now();
+  if(now - lastTouchEnd < 320) e.preventDefault();
+  lastTouchEnd = now;
+}, {passive:false});
 
 if('serviceWorker' in navigator && location.protocol.startsWith('http')){
   navigator.serviceWorker.register('sw.js').catch(()=>{});
