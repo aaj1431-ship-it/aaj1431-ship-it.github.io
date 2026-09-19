@@ -490,6 +490,12 @@ function lev(a,b){
 }
 // تطابق مرن بين كلمتين: يتسامح مع واو العطف وخطأ حرف واحد
 const EQUIV = {'اله':'الله','لله':'الله','صلي':'صل','صلى':'صل'};
+const baseWord = w => { const x = (w||'').replace(/^و(?=..)/,''); return EQUIV[x] || x; };
+function sameExact(a,b){
+  if(a===b) return true;
+  const sa=a.replace(/^و(?=..)/,''), sb=b.replace(/^و(?=..)/,'');
+  return sa===sb || (EQUIV[sa]||sa)===(EQUIV[sb]||sb);
+}
 function same(a,b){
   if(a===b) return true;
   const sa=a.replace(/^و(?=..)/,''), sb=b.replace(/^و(?=..)/,'');
@@ -515,12 +521,14 @@ function matchAt(T, i, W){
     let q=p+1, k=i+1, got=[W[p]], extra=0, drop=0;
     while(q<W.length){
       if(k<T.length && same(W[q],T[k])){ got.push(W[q]); q++; k++; }
-      else if(!extra && k+1<T.length && same(W[q],T[k+1]) && !W.slice(p,q).some(w=>same(w,T[k]))){ extra=1; got.push(W[q]); q++; k+=2; }
+      else if(!extra && k+1<T.length && same(W[q],T[k+1]) && STOP.has(baseWord(T[k])) && !W.slice(p,q).some(w=>same(w,T[k]))){ extra=1; got.push(W[q]); q++; k+=2; }
       else if(!drop && STOP.has(W[q]) && q+1<W.length && k<T.length && same(W[q+1],T[k])){ drop=1; q++; }
       else break;
     }
     // يجب أن تحتوي كلمة مميزة، أو ثلاث كلمات على الأقل (مثل: لا إله إلا الله)
-    if(!got.some(w=>!STOP.has(EQUIV[w]||w)) && got.length<3) continue;
+    if(!got.some(w=>!STOP.has(baseWord(w))) && got.length<3) continue;
+    // كلمة واحدة لا تكفي إلا إذا طابقت تمامًا، منعًا للخلط بين المتشابهات
+    if(got.length===1 && !sameExact(W[p], T[i])) continue;
     // مقطوع: لم يكتمل الذكر رغم وجود كلام بعده يخالفه
     const cut = q<W.length && k<T.length;
     const cand={matched:got.length, ratio:got.length/W.length, end:k, p, q, cut};
@@ -593,7 +601,7 @@ function daySet(m){
     {id:'alim', text:'اللهم عالم الغيب والشهادة، فاطر السماوات والأرض، رب كل شيء ومليكه، أشهد أن لا إله إلا أنت، أعوذ بك من شر نفسي، ومن شر الشيطان وشركه، وأن أقترف على نفسي سوءًا، أو أجره إلى مسلم', count:1, src:'رواه أبو داود والترمذي',
      gloss:[['فاطر','خالق على غير مثال سابق'],['شِرْكه','ما يدعو إليه من الشرك، ويُروى: شَرَكه أي حبائله'],['أقترف','أكتسب']]},
     {id:'bismillah', text:'بسم الله الذي لا يضر مع اسمه شيء في الأرض ولا في السماء، وهو السميع العليم', count:3, src:'رواه أبو داود والترمذي', fadl:'«لم يضره شيء»'},
-    {id:'radeet', text:'رضيت بالله ربًا، وبالإسلام دينًا، وبمحمد ﷺ نبيًا', count:3, src:'رواه أبو داود والترمذي', match:'رضيت بالله ربا وبالاسلام دينا وبمحمد نبيا'},
+    {id:'radeet', text:'رضيت بالله ربًا، وبالإسلام دينًا، وبمحمد ﷺ نبيًا', count:3, src:'رواه أبو داود والترمذي', match:'رضيت بالله ربا وبالاسلام دينا'},
     {id:'hayy', text:'يا حي يا قيوم، برحمتك أستغيث، أصلح لي شأني كله، ولا تكلني إلى نفسي طرفة عين', count:1, src:'رواه النسائي في الكبرى والحاكم',
      gloss:[['لا تكلني','لا تتركني'],['طرفة عين','أقل وقت']]},
     {id:'fitra', text:`${P.v} على فطرة الإسلام، وعلى كلمة الإخلاص، وعلى دين نبينا محمد ﷺ، وعلى ملة أبينا إبراهيم حنيفًا مسلمًا، وما كان من المشركين`, count:1, src:'رواه أحمد',
@@ -1364,7 +1372,7 @@ function handleResult(e){
       if(n) tickItem(it.id, n);
     } else {
       CARRY_IN = carry;
-      const found = analyze(T.join(' '), [{id:it.id, text:it.match || it.text}], !final);
+      const found = analyze(T.join(' '), [{id:it.id, text:it.match || it.text, alt:it.alt}], !final);
       const stable = final ? (found[it.id]||0) : Math.min(found[it.id]||0, prevFound[it.id]||0);
       const delta = stable - (counted[it.id]||0);
       prevFound = found;
