@@ -378,6 +378,14 @@
     </div>
     <div class="setrow"><label for="fontSize">حجم خط الأذكار</label><input type="range" id="fontSize" min="0.85" max="1.45" step="0.05"></div>
 
+    <h4>وضع الاستماع</h4>
+    <div class="seg" role="group" aria-label="وضع الاستماع">
+      <button data-listen="auto">تلقائي</button>
+      <button data-listen="continuous">متواصل</button>
+      <button data-listen="fast">سريع</button>
+    </div>
+    <p class="hint">التلقائي يختار الأنسب لجهازك. المتواصل يُبقي الميكروفون مفتوحًا أطول ويناسب الترديد السريع المتصل، وقد تتأخر النتائج في بعض الأجهزة. السريع يُغلق الجملة عند كل سكتة فيصل العدّ أسرع. جرّب الثلاثة واختر الأفضل عندك.</p>
+
     <h4>التنبيه عند العدّ</h4>
     <div class="setrow"><label for="optVibrate">اهتزاز</label><input type="checkbox" class="switch" id="optVibrate"></div>
     <div class="setrow"><label for="optSound">صوت خفيف</label><input type="checkbox" class="switch" id="optSound"></div>
@@ -650,7 +658,7 @@ const store = {
   }
 };
 const DEFAULT_SETTINGS = {method:'voice', theme:'dark', font:1, vibrate:true, sound:false, goalSound:true, wake:true,
-  mTime:'06:00', eTime:'17:00', sTime:'22:00', wTime:'20:00', notify:false, wird:{}};
+  mTime:'06:00', eTime:'17:00', sTime:'22:00', wTime:'20:00', notify:false, wird:{}, listen:'auto'};
 let custom=[], totals={}, counts={}, currentId='subhan', target=33, mode='auto';
 let tab='counter', setKey=defaultSet(), progress={}, daily={}, settings={...DEFAULT_SETTINGS};
 
@@ -1250,12 +1258,17 @@ function transcriptOf(results){
 function makeRec(){
   const r = new SR();
   r.lang = 'ar-SA';
-  r.continuous = true;          // إبقاء الميكروفون مفتوحًا قدر الإمكان
+  // الوضع المتواصل يُبقي الميكروفون مفتوحًا، والسريع يغلق الجملة عند كل سكتة.
+  // التلقائي: متواصل في أندرويد، وسريع في iOS لأن نتائجه تتأخر دفعة واحدة
+  const lm = settings.listen || 'auto';
+  r.continuous = lm==='continuous' ? true : lm==='fast' ? false : !isIOS;
   r.interimResults = true;
   r.maxAlternatives = 1;
   if('processLocally' in r) r.processLocally = !navigator.onLine;
   r.onstart = ()=>{ resetSession(); gotAny = false; lastEvt = Date.now(); setListenMsg(); };
-  r.onaudiostart = r.onspeechstart = ()=>{ lastEvt = Date.now(); };
+  r.onaudiostart = ()=>{ lastEvt = Date.now(); };
+  r.onspeechstart = ()=>{ lastEvt = Date.now(); setMsg('يستمع…', true); };
+  r.onspeechend = ()=>{ lastEvt = Date.now(); setMsg('جارٍ التعرف…', true); };
   r.onresult = e=>{ lastEvt = Date.now(); restarts = 0; handleResult(e); };
   r.onerror = e=>{
     lastEvt = Date.now();
@@ -1267,7 +1280,7 @@ function makeRec(){
     }
     // no-speech و aborted طبيعية: يعيد المراقب التشغيل تلقائيًا
   };
-  r.onend = ()=>{ if(listening) relisten(80); };
+  r.onend = ()=>{ if(listening) relisten((settings.listen||'auto')==='fast' ? 50 : 80); };
   return r;
 }
 
@@ -1289,10 +1302,7 @@ function needTap(){
   active = false; renderMethod();
   setMsg('توقّف الميكروفون. اضغط لمتابعة الاستماع.', false, {label:'متابعة', run:()=>startActive()});
 }
-function setListenMsg(){
-  if(tab==='adhkar'){ const it=curItem(); if(!it) return; }
-  setMsg('يستمع… اقرأ الذكر بوضوح', true);
-}
+function setListenMsg(){ setMsg('يستمع… اقرأ الذكر بوضوح', true); }
 
 function startVoice(){
   carry = null; lastFinal = ''; restarts = 0;
@@ -1304,7 +1314,9 @@ function startVoice(){
   clearInterval(watchdog);
   watchdog = setInterval(()=>{
     if(!listening) return;
-    if(Date.now() - lastEvt > 6000) relisten(0);      // صمت طويل: أعد فتح الميكروفون
+    const lm = settings.listen || 'auto';
+    const idle = lm==='continuous' ? 9000 : lm==='fast' ? 3500 : (isIOS ? 4500 : 6000);
+    if(Date.now() - lastEvt > idle) relisten(0);   // صمت طويل: أعد فتح الميكروفون
   }, 2000);
   return true;
 }
@@ -1362,6 +1374,7 @@ function handleResult(e){
   prevFound = found;
   if(final){
     lastFinal = normalize(txt); lastFinalAt = Date.now();
+    if(listening) setListenMsg();
     if(words(txt).length > 250) relisten(120);   // جلسة طويلة: نبدأ صفحة جديدة نظيفة
   }
 }
@@ -1458,6 +1471,7 @@ function applySettings(){
 }
 function renderSettings(){
   document.querySelectorAll('[data-theme-btn]').forEach(b=>b.classList.toggle('on', b.dataset.themeBtn===settings.theme));
+  document.querySelectorAll('[data-listen]').forEach(b=>b.classList.toggle('on', b.dataset.listen===(settings.listen||'auto')));
   $('fontSize').value = settings.font;
   $('optVibrate').checked = settings.vibrate;
   $('optSound').checked = settings.sound;
@@ -1473,6 +1487,10 @@ function renderSettings(){
     : 'يصلك تنبيه عند وقت كل ورد إن لم تُتمّه.';
 }
 document.querySelectorAll('[data-theme-btn]').forEach(b=>b.onclick=()=>{ settings.theme=b.dataset.themeBtn; applySettings(); renderSettings(); save(); });
+document.querySelectorAll('[data-listen]').forEach(b=>b.onclick=()=>{
+  settings.listen = b.dataset.listen; renderSettings(); save();
+  if(listening){ stopVoice(); startVoice(); }      // طبّق الوضع الجديد فورًا
+});
 $('fontSize').oninput = e=>{ settings.font=+e.target.value; applySettings(); save(); };
 $('optVibrate').onchange = e=>{ settings.vibrate=e.target.checked; save(); if(settings.vibrate) feedback('tick'); };
 $('optSound').onchange = e=>{ settings.sound=e.target.checked; save(); if(settings.sound) feedback('tick'); };

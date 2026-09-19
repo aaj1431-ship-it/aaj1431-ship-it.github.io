@@ -1,5 +1,5 @@
 // الشبكة أولًا: يحصل المستخدم دائمًا على آخر نسخة، ويعمل بدون إنترنت من النسخة المحفوظة
-const CACHE = 'tasbih-v11';
+const CACHE = 'tasbih-v13';
 const FILES = ['./','./index.html','./manifest.json','./icons/icon-192.png','./icons/icon-512.png'];
 self.addEventListener('install', e => {
   self.skipWaiting();
