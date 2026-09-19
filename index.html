@@ -1096,6 +1096,7 @@ function wakeOff(){ try{ wakeLock && wakeLock.release(); }catch(e){} wakeLock=nu
 document.addEventListener('visibilitychange', ()=>{
   if(document.hidden) return;
   if(active) wakeOn();
+  if(listening) relisten(200);
   if(tab==='adhkar') renderCards(false);
   remind(); checkNotify();
 });
@@ -1226,91 +1227,143 @@ function stopMedia(){
 // --- الصوت
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
 const isAndroid = /Android/i.test(navigator.userAgent);
-let rec = null, listening = false;
-let counted = {}, prevFound = {}, gotAny = false, lastFinal = '', procN = 0, carry = null;
+const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform==='MacIntel' && navigator.maxTouchPoints>1);
+let rec = null, listening = false, watchdog = null, lastEvt = 0, restarts = 0;
+let counted = {}, prevFound = {}, gotAny = false, lastFinal = '', lastFinalAt = 0, procN = 0, carry = null;
 function resetSession(){ counted = {}; prevFound = {}; procN = 0; skipWords = 0; }
 
-function startVoice(){
-  carry = null;
-  if(!rec){ setMsg('العدّ بالصوت غير مدعوم هنا. استخدم Chrome أو اختر طريقة أخرى.'); return false; }
-  lastFinal = '';
-  if('processLocally' in rec) rec.processLocally = !navigator.onLine;
-  listening = true;
-  try{ rec.start(); }catch(_){}
-  return true;
+// نص الجملة الحالية مهما اختلفت طريقة المتصفح في إرسال النتائج
+function transcriptOf(results){
+  let text = '';
+  for(const r of results){
+    const t = (r[0].transcript||'').trim();
+    if(!t) continue;
+    const nt = normalize(t), nx = normalize(text);
+    if(!text) text = t;
+    else if(nt.startsWith(nx)) text = t;          // نص متجدد يحوي ما قبله
+    else if(nx.endsWith(nt)) continue;            // تكرار للجزء الأخير
+    else text = (text + ' ' + t).trim();
+  }
+  return text;
 }
-function stopVoice(){ carry = null; if(listening){ listening=false; try{ rec.stop(); }catch(_){} } }
 
-if(SR){
-  rec = new SR();
-  rec.lang = 'ar-SA';
-  rec.continuous = false;
-  rec.interimResults = true;
-  rec.maxAlternatives = 1;
-
-  rec.onstart = ()=>{ resetSession(); gotAny = false; };
-
-  const transcriptOf = results=>{
-    if(isAndroid) return results[results.length-1][0].transcript.trim();
-    let text=''; for(const r of results) text += ' ' + r[0].transcript;
-    return text.replace(/\s+/g,' ').trim();
-  };
-
-  rec.onresult = e=>{
-    const final = e.results[e.results.length-1].isFinal;
-    const txt = transcriptOf(e.results);
-    if(!txt) return;
-    if(final && !gotAny && normalize(txt)===lastFinal) return;
-    gotAny = true;
-
-    if(tab === 'adhkar'){
-      const it = curItem(); if(!it) return;
-      const T = words(txt).slice(skipWords);
-      if(words(it.match || it.text).length > 6){
-        const fresh = T.slice(procN);
-        procN = T.length;
-        const n = trackLong(it, fresh);
-        if(n) tickItem(it.id, n);
-      } else {
-        CARRY_IN = carry;
-        const found = analyze(T.join(' '), [{id:it.id, text:it.match || it.text}], !final);
-        const stable = final ? (found[it.id]||0) : Math.min(found[it.id]||0, prevFound[it.id]||0);
-        const delta = stable - (counted[it.id]||0);
-        prevFound = found;
-        if(delta > 0){
-          counted[it.id] = stable;
-          const left = it.count - (prog()[it.id]||0);
-          tickItem(it.id, Math.min(delta, left));
-          if(delta >= left){ skipWords = words(txt).length; counted = {}; prevFound = {}; procN = 0; }
-        }
-        if(final) carry = CARRY_OUT;
-      }
-      if(final) lastFinal = normalize(txt);
-      return;
-    }
-
-    const list = mode === 'one' ? [current()] : all();
-    CARRY_IN = carry;
-    const found = analyze(txt, list, !final);
-    if(final) carry = CARRY_OUT;
-    const ids = new Set([...Object.keys(found), ...Object.keys(prevFound)]);
-    for(const id of ids){
-      const stable = final ? (found[id]||0) : Math.min(found[id]||0, prevFound[id]||0);
-      const delta = stable - (counted[id]||0);
-      if(delta > 0){ counted[id] = stable; add(id, delta); }
-    }
-    prevFound = found;
-    if(final) lastFinal = normalize(txt);
-  };
-  rec.onerror = e=>{
+function makeRec(){
+  const r = new SR();
+  r.lang = 'ar-SA';
+  r.continuous = true;          // إبقاء الميكروفون مفتوحًا قدر الإمكان
+  r.interimResults = true;
+  r.maxAlternatives = 1;
+  if('processLocally' in r) r.processLocally = !navigator.onLine;
+  r.onstart = ()=>{ resetSession(); gotAny = false; lastEvt = Date.now(); setListenMsg(); };
+  r.onaudiostart = r.onspeechstart = ()=>{ lastEvt = Date.now(); };
+  r.onresult = e=>{ lastEvt = Date.now(); restarts = 0; handleResult(e); };
+  r.onerror = e=>{
+    lastEvt = Date.now();
     if(e.error==='not-allowed' || e.error==='service-not-allowed'){
-      stopActive(); setMsg('اسمح باستخدام الميكروفون من إعدادات التطبيق ثم أعد المحاولة.');
+      stopActive(); setMsg('اسمح باستخدام الميكروفون من إعدادات المتصفح أو الجهاز ثم أعد المحاولة.');
     } else if(e.error==='network' || e.error==='language-not-supported'){
       stopActive();
       setMsg('العدّ بالصوت يحتاج إنترنت.', false, {label:'استخدم النقر بدلًا منه', run:()=>{ settings.method='tap'; renderMethod(); save(); startActive(); }});
     }
+    // no-speech و aborted طبيعية: يعيد المراقب التشغيل تلقائيًا
   };
-  rec.onend = ()=>{ if(listening) setTimeout(()=>{ if(listening){ try{ rec.start(); }catch(_){} } }, 150); };
+  r.onend = ()=>{ if(listening) relisten(80); };
+  return r;
+}
+
+// إعادة تشغيل الميكروفون: بعض المتصفحات (خصوصًا Safari) توقفه بصمت
+function relisten(delay){
+  clearTimeout(relisten.t);
+  relisten.t = setTimeout(()=>{
+    if(!listening) return;
+    try{ rec && rec.abort(); }catch(_){}
+    rec = makeRec();
+    try{
+      rec.start(); lastEvt = Date.now(); restarts++;
+      if(restarts > 6){ needTap(); }
+    }catch(err){ needTap(); }
+  }, delay||120);
+}
+function needTap(){
+  listening = false; clearInterval(watchdog); watchdog = null;
+  active = false; renderMethod();
+  setMsg('توقّف الميكروفون. اضغط لمتابعة الاستماع.', false, {label:'متابعة', run:()=>startActive()});
+}
+function setListenMsg(){
+  if(tab==='adhkar'){ const it=curItem(); if(!it) return; }
+  setMsg('يستمع… اقرأ الذكر بوضوح', true);
+}
+
+function startVoice(){
+  carry = null; lastFinal = ''; restarts = 0;
+  if(!SR){ setMsg('العدّ بالصوت غير مدعوم في هذا المتصفح. اختر طريقة أخرى للعدّ.'); return false; }
+  rec = makeRec();
+  listening = true;
+  try{ rec.start(); }catch(_){ }
+  lastEvt = Date.now();
+  clearInterval(watchdog);
+  watchdog = setInterval(()=>{
+    if(!listening) return;
+    if(Date.now() - lastEvt > 6000) relisten(0);      // صمت طويل: أعد فتح الميكروفون
+  }, 2000);
+  return true;
+}
+function stopVoice(){
+  carry = null; listening = false;
+  clearInterval(watchdog); watchdog = null; clearTimeout(relisten.t);
+  try{ rec && rec.stop(); }catch(_){}
+  try{ rec && rec.abort(); }catch(_){}
+}
+
+function handleResult(e){
+  const final = e.results[e.results.length-1].isFinal;
+  const txt = transcriptOf(e.results);
+  if(!txt) return;
+  // تجاهل إعادة إرسال الجملة السابقة فور بدء جلسة جديدة
+  if(final && !gotAny && normalize(txt)===lastFinal && Date.now()-lastFinalAt < 1200) return;
+  gotAny = true;
+
+  if(tab === 'adhkar'){
+    const it = curItem(); if(!it) return;
+    const T = words(txt).slice(skipWords);
+    if(words(it.match || it.text).length > 6){
+      const fresh = T.slice(procN);
+      procN = T.length;
+      const n = trackLong(it, fresh);
+      if(n) tickItem(it.id, n);
+    } else {
+      CARRY_IN = carry;
+      const found = analyze(T.join(' '), [{id:it.id, text:it.match || it.text}], !final);
+      const stable = final ? (found[it.id]||0) : Math.min(found[it.id]||0, prevFound[it.id]||0);
+      const delta = stable - (counted[it.id]||0);
+      prevFound = found;
+      if(delta > 0){
+        counted[it.id] = stable;
+        const left = it.count - (prog()[it.id]||0);
+        tickItem(it.id, Math.min(delta, left));
+        if(delta >= left){ skipWords = words(txt).length; counted = {}; prevFound = {}; procN = 0; }
+      }
+      if(final) carry = CARRY_OUT;
+    }
+    if(final){ lastFinal = normalize(txt); lastFinalAt = Date.now(); }
+    return;
+  }
+
+  const list = mode === 'one' ? [current()] : all();
+  CARRY_IN = carry;
+  const found = analyze(txt, list, !final);
+  if(final) carry = CARRY_OUT;
+  const ids = new Set([...Object.keys(found), ...Object.keys(prevFound)]);
+  for(const id of ids){
+    const stable = final ? (found[id]||0) : Math.min(found[id]||0, prevFound[id]||0);
+    const delta = stable - (counted[id]||0);
+    if(delta > 0){ counted[id] = stable; add(id, delta); }
+  }
+  prevFound = found;
+  if(final){
+    lastFinal = normalize(txt); lastFinalAt = Date.now();
+    if(words(txt).length > 250) relisten(120);   // جلسة طويلة: نبدأ صفحة جديدة نظيفة
+  }
 }
 
 // ===== الإحصائيات =====
