@@ -1104,7 +1104,7 @@ function wakeOff(){ try{ wakeLock && wakeLock.release(); }catch(e){} wakeLock=nu
 document.addEventListener('visibilitychange', ()=>{
   if(document.hidden) return;
   if(active) wakeOn();
-  if(listening) relisten(200);
+  if(listening) relisten(isIOS ? 600 : 200);
   if(tab==='adhkar') renderCards(false);
   remind(); checkNotify();
 });
@@ -1280,23 +1280,30 @@ function makeRec(){
     }
     // no-speech و aborted طبيعية: يعيد المراقب التشغيل تلقائيًا
   };
-  r.onend = ()=>{ if(listening) relisten((settings.listen||'auto')==='fast' ? 50 : 80); };
+  r.onend = ()=>{ if(listening) relisten(isIOS ? 350 : ((settings.listen||'auto')==='fast' ? 50 : 80)); };
   return r;
 }
 
-// إعادة تشغيل الميكروفون: بعض المتصفحات (خصوصًا Safari) توقفه بصمت
+// إعادة تشغيل الميكروفون: بعض المتصفحات (خصوصًا Safari) توقفه بصمت.
+// في iOS نعيد استخدام نفس الجلسة بلا abort، لأن الإلغاء المتكرر يُظهر تنبيه «إيقاف التسجيل الصوتي؟»
 function relisten(delay){
   clearTimeout(relisten.t);
+  const wait = delay!=null ? delay : (isIOS ? 350 : 120);
   relisten.t = setTimeout(()=>{
     if(!listening) return;
-    try{ rec && rec.abort(); }catch(_){}
-    rec = makeRec();
     try{
+      if(!isIOS){ try{ rec && rec.abort(); }catch(_){} rec = makeRec(); }
+      else if(!rec) rec = makeRec();
       rec.start(); lastEvt = Date.now(); restarts++;
-      if(restarts > 6){ needTap(); }
-    }catch(err){ needTap(); }
-  }, delay||120);
+      if(restarts > 8) needTap();
+    }catch(err){
+      // "already started" في iOS تعني أن الميكروفون ما زال يعمل
+      if(String(err && err.name) === 'InvalidStateError'){ lastEvt = Date.now(); return; }
+      needTap();
+    }
+  }, wait);
 }
+
 function needTap(){
   listening = false; clearInterval(watchdog); watchdog = null;
   active = false; renderMethod();
@@ -1315,8 +1322,9 @@ function startVoice(){
   watchdog = setInterval(()=>{
     if(!listening) return;
     const lm = settings.listen || 'auto';
-    const idle = lm==='continuous' ? 9000 : lm==='fast' ? 3500 : (isIOS ? 4500 : 6000);
-    if(Date.now() - lastEvt > idle) relisten(0);   // صمت طويل: أعد فتح الميكروفون
+    // في iOS لا نتدخل إلا بعد صمت طويل جدًا، حتى لا يظهر تنبيه النظام
+    const idle = isIOS ? 15000 : (lm==='continuous' ? 9000 : lm==='fast' ? 3500 : 6000);
+    if(Date.now() - lastEvt > idle) relisten(isIOS ? 400 : 0);
   }, 2000);
   return true;
 }
@@ -1324,7 +1332,7 @@ function stopVoice(){
   carry = null; listening = false;
   clearInterval(watchdog); watchdog = null; clearTimeout(relisten.t);
   try{ rec && rec.stop(); }catch(_){}
-  try{ rec && rec.abort(); }catch(_){}
+  if(!isIOS){ try{ rec && rec.abort(); }catch(_){} rec = null; }
 }
 
 function handleResult(e){
