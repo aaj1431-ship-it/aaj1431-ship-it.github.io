@@ -452,7 +452,6 @@ const BUILTIN = [
   {id:'zinah_c', text:'سبحان الله وبحمده، عدد خلقه، ورضا نفسه، وزنة عرشه، ومداد كلماته', target:3,
    fadl:'قالها النبي ﷺ لجويرية رضي الله عنها: «لقد قلتُ بعدكِ أربع كلمات ثلاث مرات، لو وُزنت بما قلتِ منذ اليوم لوزنتهنّ»', src:'رواه مسلم'},
   {id:'ibrahimiyya', text:'اللهم صل على محمد وعلى آل محمد، كما صليت على إبراهيم وعلى آل إبراهيم، إنك حميد مجيد. اللهم بارك على محمد وعلى آل محمد، كما باركت على إبراهيم وعلى آل إبراهيم، إنك حميد مجيد',
-   alt:['اللهم صل علي محمد وعلي ال محمد كما صليت علي ابراهيم وعلي ال ابراهيم انك حميد مجيد'],
    fadl:'هي الصلاة الإبراهيمية التي علّمها النبي ﷺ أصحابه لما سألوه: كيف نصلي عليك؟', src:'متفق عليه'},
   {id:'salat', text:'اللهم صل على محمد', alt:['اللهم صلي علي محمد','اللهم صلي علي محمد صلي الله عليه وسلم','اللهم صلي وسلم علي نبينا محمد','اللهم صلي وسلم علي نبينا محمد صلي الله عليه وسلم','صلي الله عليه وسلم','صلي الله عليه وعلي اله وصحبه وسلم'],
    fadl:'«من صلّى عليّ واحدة، صلّى الله عليه عشرًا»', src:'رواه مسلم'},
@@ -546,7 +545,8 @@ function analyze(text, list, live){
   const seqs=list.flatMap(d=>[d.text, ...(d.alt||[]), ...(d.key&&d.key!==d.text?[d.key]:[])]
     .map((s,i)=>({d, key:d.id+'#'+i, W:words(s)})).filter(v=>v.W.length));
   let i=0, last=null;
-  let prev = (CARRY_IN && Date.now()-CARRY_IN.t < 12000) ? {key:CARRY_IN.key, q:CARRY_IN.q, carried:true} : null;
+  let prev = (CARRY_IN && Date.now()-CARRY_IN.t < 12000)
+    ? {id:CARRY_IN.id, key:CARRY_IN.key, q:CARRY_IN.q, counted:CARRY_IN.counted, len:CARRY_IN.len, carried:true} : null;
   CARRY_OUT = null;
   while(i<T.length){
     let win=null;
@@ -555,15 +555,24 @@ function analyze(text, list, live){
       if(m && (!win || better(m,win.m))) win={v,m};
     }
     if(win){
-      // إكمال لنفس الترديدة (جزء لاحق من نفس الذكر) لا يُحسب مرة جديدة
-      const cont = prev && prev.key===win.v.key && win.m.p>=prev.q && (!prev.carried || win.m.p>0);
-      if(!cont) result[win.v.d.id]=(result[win.v.d.id]||0)+1;
       const W=win.v.W, id=win.v.d.id;
+      const reachedEnd = win.m.q >= W.length - 1;
+      const isLong = W.length >= 8;      // الذكر الطويل لا يُحسب إلا إذا بلغ آخره
+      // إكمال لنفس الترديدة ولو جاء في جملة تالية
+      const cont = prev && prev.id===id && win.m.p >= prev.q && (!prev.carried || win.m.p>0);
+      let counted;
+      if(cont){
+        counted = prev.counted;
+        if(!counted && (!isLong || reachedEnd)){ result[id]=(result[id]||0)+1; counted = true; }
+      } else {
+        counted = false;
+        if(!isLong || reachedEnd){ result[id]=(result[id]||0)+1; counted = true; }
+      }
       const done = win.m.q===W.length && win.m.end<=T.length;
       const extendable = seqs.some(o=>o.W.length>W.length && W.every((w,x)=>same(w,o.W[x])));
-      last = {id, counted:!cont, safe: done && !extendable};
-      prev={key:win.v.key, q:win.m.q};
-      CARRY_OUT = {key:win.v.key, q:win.m.q, t:Date.now()};
+      last = {id, counted: counted && !cont, safe: done && !extendable};
+      prev = {id, key:win.v.key, q:win.m.q, counted, len:W.length};
+      CARRY_OUT = {id, key:win.v.key, q:win.m.q, counted, len:W.length, t:Date.now()};
       i=win.m.end;
     }
     else i++;
